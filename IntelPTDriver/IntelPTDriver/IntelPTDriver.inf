@@ -4,8 +4,8 @@
 
 [Version]
 Signature="$WINDOWS NT$"
-Class=Sample ; TODO: edit Class
-ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5171} ; TODO: edit ClassGuid
+Class=IntelPt ; TODO: edit Class
+ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5122} ; TODO: edit ClassGuid
 Provider=%ManufacturerName%
 CatalogFile=IntelPTDriver.cat
 DriverVer= ; TODO: set DriverVer in stampinf property pages
@@ -16,9 +16,6 @@ DefaultDestDir = 12
 IntelPTDriver_Device_CoInstaller_CopyFiles = 11
 
 ; ================= Class section =====================
-
-[ClassInstall32]
-Addreg=SampleClassReg
 
 [SampleClassReg]
 HKR,,,0,%ClassName%
@@ -80,8 +77,8 @@ KmdfLibraryVersion = $KMDFVERSION$
 
 [Strings]
 SPSVCINST_ASSOCSERVICE= 0x00000002
-ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
-ClassName="Samples" ; TODO: edit ClassName
+ManufacturerName="Cristian Nacu" ;TODO: Replace with your manufacturer name
+ClassName="IntelPt" ; TODO: edit ClassName
 DiskName = "IntelPTDriver Installation Disk"
 IntelPTDriver.DeviceDesc = "IntelPTDriver Device"
 IntelPTDriver.SVCDESC = "IntelPTDriver Service"
