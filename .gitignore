@@ -53,3 +53,4 @@ dkms.conf
 IntelPTDriver/IntelPTDriver/x64
 IntelPTDriver/x64/Debug
 IntelPTDriver/.vs
+IntelPTDriver/IntelPTUserModeApp/x64
