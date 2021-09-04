@@ -97,6 +97,7 @@ DriverEntry(
     attributes.EvtCleanupCallback = SerialEvtDriverContextCleanup;
 
     // Create the driver object
+    DEBUG_STOP();
     status = WdfDriverCreate(
         DriverObject,
         RegistryPath,
@@ -109,8 +110,10 @@ DriverEntry(
         KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "WdfDriverCreate error\n"));
         return status;
     }
+    DEBUG_PRINT("WdfDriverCreate OK\n");
 
     // Create the device object
+    DEBUG_STOP();
     status = InitDevice(
         wdfdriver,
         &DEFAULT_DEVICE_SETTINGS,
@@ -121,8 +124,10 @@ DriverEntry(
         KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[ERROR] InitDevice exitted with status %X\n", status));
         return status;
     }
+    DEBUG_PRINT("InitDevice OK\n");
 
     // Initialize the communication queue
+    DEBUG_STOP();
     status = InitCommQueue(
         device,
         &ctxt,
@@ -134,6 +139,7 @@ DriverEntry(
         KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[ERROR] InitCommQueue exitted with status %X\n", status));
         return status;
     }
+    DEBUG_PRINT("InitCommQueue OK\n");
 
 
     //typedef struct _INTEL_PT_CAPABILITIES
