@@ -1,4 +1,5 @@
 #include "Device.h"
+#include "Debug.h"
 
 # define UninitDeviceInit(deviceInit)	WdfDeviceInitFree(deviceInit)
 
@@ -143,6 +144,8 @@ InitDevice(
 	WDF_FILEOBJECT_CONFIG fileConfig;
 	WDFDEVICE *device = NULL;
 
+	DEBUG_PRINT("InitDevice\n");
+
 	status = InitDeviceInit(
 		WdfDriver,
 		&DeviceSettings->DeviceInitSettings,
@@ -150,6 +153,7 @@ InitDevice(
 	);
 	if (!NT_SUCCESS(status))
 	{
+		DEBUG_PRINT("InitDeviceInit error status %X\n", status);
 		goto cleanup;
 	}
 
@@ -159,6 +163,7 @@ InitDevice(
 	);
 	if (!NT_SUCCESS(status))
 	{
+		DEBUG_PRINT("InitFileConfig error status %X\n", status);
 		goto cleanup;
 	}
 
@@ -170,6 +175,7 @@ InitDevice(
 	);
 	if (!NT_SUCCESS(status))
 	{
+		DEBUG_PRINT("InitDeviceControl error status %X\n", status);
 		goto cleanup;
 	}
 
@@ -177,6 +183,7 @@ InitDevice(
 	return status;
 
 cleanup:
+	DEBUG_PRINT("InitDevice error status %X\n", status);
 
 	if (device)
 	{

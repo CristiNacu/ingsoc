@@ -61,7 +61,6 @@ DeviceAdd(
     _Inout_ PWDFDEVICE_INIT DeviceInit
 )
 {
-    __debugbreak();
     PAGED_CODE();
     UNREFERENCED_PARAMETER(Driver);
     UNREFERENCED_PARAMETER(DeviceInit);
@@ -77,7 +76,6 @@ DriverEntry(
     _In_ PUNICODE_STRING    RegistryPath
 )
 {
-    DbgBreakPoint();
 
     // NTSTATUS variable to record success or failure
     NTSTATUS status;
@@ -88,24 +86,15 @@ DriverEntry(
     WDF_OBJECT_ATTRIBUTES  attributes;
 
     WDFDEVICE* device;
-    COMM_QUEUE_DEVICE_CONTEXT ctxt;
+    COMM_QUEUE_DEVICE_CONTEXT ctxt = {0};
 
-    // Print "Hello World" for DriverEntry
-    KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "KmdfHelloWorld: DriverEntry\n"));
-    
     // Initialize the driver configuration object to register the
     // entry point for the EvtDeviceAdd callback, KmdfHelloWorldEvtDeviceAdd
     WDF_DRIVER_CONFIG_INIT(&config, DeviceAdd);
+    WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
 
     config.EvtDriverUnload = DriverUnload;
-
-
-    WDF_OBJECT_ATTRIBUTES_INIT(
-        &attributes
-    );
-
     attributes.EvtCleanupCallback = SerialEvtDriverContextCleanup;
-
 
     // Create the driver object
     status = WdfDriverCreate(
@@ -141,6 +130,7 @@ DriverEntry(
     );
     if (!NT_SUCCESS(status))
     {
+        // TODO: Uninitialize resources in case of an error
         KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[ERROR] InitCommQueue exitted with status %X\n", status));
         return status;
     }

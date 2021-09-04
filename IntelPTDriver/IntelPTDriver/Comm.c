@@ -1,5 +1,5 @@
 #include "Comm.h"
-
+#include "Debug.h"
 VOID
 CommIngonreOperation(
     _In_ WDFFILEOBJECT FileObject
@@ -20,9 +20,13 @@ InitCommQueue(
     WDF_IO_QUEUE_CONFIG             ioQueueConfig = { 0 };
     WDFQUEUE                        queue = { 0 };
 
+    DEBUG_PRINT("InitCommQueue\n");
+
+
     devContext = CommGetContextFromDevice(*ControlDevice);
     if (devContext == NULL)
     {
+        DEBUG_PRINT("CommGetContextFromDevice context null\n");
         return STATUS_INVALID_DEVICE_STATE;
     }
 
@@ -48,6 +52,7 @@ InitCommQueue(
     status = WdfIoQueueCreate(*ControlDevice, &ioQueueConfig, NULL, &queue);
     if (!NT_SUCCESS(status))
     {
+        DEBUG_PRINT("WdfIoQueueCreate error status %X\n", status);
         return status;
     }
 
@@ -56,6 +61,7 @@ InitCommQueue(
     status = WdfIoQueueCreate(*ControlDevice, &ioQueueConfig, NULL, &devContext->NotificationQueue);
     if (!NT_SUCCESS(status))
     {
+        DEBUG_PRINT("WdfIoQueueCreate error status %X\n", status);
         return status;
     }
 
