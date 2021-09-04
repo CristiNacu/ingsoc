@@ -70,21 +70,6 @@ DeviceAdd(
     return STATUS_SUCCESS;
 }
 
-//typedef struct _INTEL_PT_CAPABILITIES
-//{
-//
-//    DWORD IntelPtAvailable : 1;
-//    DWORD Cr3FilteringSupport : 1;
-//    DWORD ConfigurablePsbAndCycleAccurateModeSupport : 1;
-//    DWORD IpFilteringAndTraceStopSupport : 1;
-//    DWORD MtcSupport : 1;
-//    DWORD PtwriteSupport : 1;
-//    DWORD PowerEventTraceSupport : 1;
-//    DWORD PsbAndPmiPreservationSupport : 1;
-//    DWORD TopaOutputSupport : 1;
-//    DWORD TopaMultipleOutputSupport : 1;
-//
-//} INTEL_PT_CAPABILITIES;
 
 NTSTATUS
 DriverEntry(
@@ -159,6 +144,24 @@ DriverEntry(
         KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[ERROR] InitCommQueue exitted with status %X\n", status));
         return status;
     }
+
+
+    //typedef struct _INTEL_PT_CAPABILITIES
+    //{
+    //
+    //    DWORD IntelPtAvailable : 1;
+    //    DWORD Cr3FilteringSupport : 1;
+    //    DWORD ConfigurablePsbAndCycleAccurateModeSupport : 1;
+    //    DWORD IpFilteringAndTraceStopSupport : 1;
+    //    DWORD MtcSupport : 1;
+    //    DWORD PtwriteSupport : 1;
+    //    DWORD PowerEventTraceSupport : 1;
+    //    DWORD PsbAndPmiPreservationSupport : 1;
+    //    DWORD TopaOutputSupport : 1;
+    //    DWORD TopaMultipleOutputSupport : 1;
+    //
+    //} INTEL_PT_CAPABILITIES;
+
 
     //BOOLEAN IntelPtPresent = FALSE;
 

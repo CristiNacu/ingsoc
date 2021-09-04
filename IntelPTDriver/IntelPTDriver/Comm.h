@@ -26,6 +26,6 @@ InitCommQueue(
     _In_ WDFDEVICE* ControlDevice,
     _In_ COMM_QUEUE_DEVICE_CONTEXT* Data,
     _In_ IO_QUEUE_SETTINGS* IoQueueSettings
-)
+);
 
 #endif
