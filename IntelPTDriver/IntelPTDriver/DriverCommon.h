@@ -6,7 +6,7 @@
 #include <wdfobject.h>
 #include <intrin.h>
 
-#define DEBUGGING_ACTIVE FALSE      //  Set to true for debugging logs / dbgbreaks
+#define DEBUGGING_ACTIVE TRUE      //  Set to true for debugging logs / dbgbreaks
 
 typedef struct _COMM_QUEUE_DEVICE_CONTEXT {
     PVOID            Data;

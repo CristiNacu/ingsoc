@@ -1,6 +1,7 @@
 #include "DriverCommon.h"
 #include "Device.h"
 #include "Comm.h"
+#include "Debug.h"
 
 DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD DeviceAdd;
@@ -70,7 +71,6 @@ DeviceAdd(
     return STATUS_SUCCESS;
 }
 
-
 NTSTATUS
 DriverEntry(
     _In_ PDRIVER_OBJECT     DriverObject,
@@ -92,7 +92,7 @@ DriverEntry(
 
     // Print "Hello World" for DriverEntry
     KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "KmdfHelloWorld: DriverEntry\n"));
-
+    
     // Initialize the driver configuration object to register the
     // entry point for the EvtDeviceAdd callback, KmdfHelloWorldEvtDeviceAdd
     WDF_DRIVER_CONFIG_INIT(&config, DeviceAdd);
