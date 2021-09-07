@@ -128,6 +128,8 @@ DriverEntry(
 
     // Initialize the communication queue
     DEBUG_STOP();
+    DEBUG_PRINT("Device Addr %p\n", device);
+
     status = InitCommQueue(
         device,
         &ctxt,

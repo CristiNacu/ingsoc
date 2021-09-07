@@ -25,7 +25,7 @@ InitDeviceInit(
 	UNICODE_STRING                  deviceName = { 0 };
 
 	// Initialize the deviceInit object
-	deviceInit = WdfControlDeviceInitAllocate(Driver, &COMM_QUEUE_DEVICE_PROTECTION);
+	deviceInit = WdfControlDeviceInitAllocate(Driver, &COMM_QUEUE_DEVICE_PROTECTION_FULL);
 	if (deviceInit == NULL)
 	{
 		return STATUS_INSUFFICIENT_RESOURCES;
@@ -105,7 +105,6 @@ InitDeviceControl(
 	objAttributes.EvtDestroyCallback = DeviceConfigSettings->DestroyCallback;
 
 	WdfDeviceInitSetFileObjectConfig(DeviceInit, FileConfig, WDF_NO_OBJECT_ATTRIBUTES);
-
 	status = WdfDeviceCreate(&DeviceInit, &objAttributes, &controlDevice);
 	if (!NT_SUCCESS(status))
 	{

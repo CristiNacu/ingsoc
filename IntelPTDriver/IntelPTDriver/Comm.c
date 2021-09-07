@@ -22,6 +22,12 @@ InitCommQueue(
 
     DEBUG_PRINT("InitCommQueue\n");
 
+    DEBUG_STOP();
+    DEBUG_PRINT("Device Addr %p\n", ControlDevice);
+    DEBUG_STOP();
+    DEBUG_PRINT("Device %p\n", (*ControlDevice));
+    DEBUG_STOP();
+    DEBUG_PRINT("Get context:\n");
 
     devContext = CommGetContextFromDevice(*ControlDevice);
     if (devContext == NULL)
@@ -30,11 +36,16 @@ InitCommQueue(
         return STATUS_INVALID_DEVICE_STATE;
     }
 
+
     devContext->Data = Data;
     devContext->Sequence = 0;
     devContext->NotificationQueue = NULL;
+    DEBUG_STOP();
 
     WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&ioQueueConfig, WdfIoQueueDispatchParallel);
+
+    DEBUG_STOP();
+
     ioQueueConfig.Settings.Parallel.NumberOfPresentedRequests = ((ULONG)-1);
 
     ioQueueConfig.EvtIoDefault = IoQueueSettings->IoQueueIoDefault;
@@ -49,6 +60,8 @@ InitCommQueue(
 
     ioQueueConfig.PowerManaged = WdfFalse;
 
+    DEBUG_STOP();
+
     status = WdfIoQueueCreate(*ControlDevice, &ioQueueConfig, NULL, &queue);
     if (!NT_SUCCESS(status))
     {
@@ -56,7 +69,12 @@ InitCommQueue(
         return status;
     }
 
+    DEBUG_STOP();
+
     WDF_IO_QUEUE_CONFIG_INIT(&ioQueueConfig, WdfIoQueueDispatchManual);
+
+    DEBUG_STOP();
+
 
     status = WdfIoQueueCreate(*ControlDevice, &ioQueueConfig, NULL, &devContext->NotificationQueue);
     if (!NT_SUCCESS(status))
@@ -64,8 +82,10 @@ InitCommQueue(
         DEBUG_PRINT("WdfIoQueueCreate error status %X\n", status);
         return status;
     }
+    DEBUG_STOP();
 
     WdfControlFinishInitializing(*ControlDevice);
+    DEBUG_STOP();
 
     return status;
 }
