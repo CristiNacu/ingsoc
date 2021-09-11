@@ -11,4 +11,10 @@ DEFINE_GUID(
 #define SAMPLE_DEVICE_USER_NAME      L"\\Global??\\SampleComm"
 #define SAMPLE_DEVICE_OPEN_NAME      L"\\\\.\\SampleComm"
 
+
+
+#define COMM_INITIALIZE_COMMUNICATION       0x1
+#define COMM_STOP_COMMUNICATION             0x2
+#define COMM_UPDATE_COMMUNICATION           0x3
+
 #endif

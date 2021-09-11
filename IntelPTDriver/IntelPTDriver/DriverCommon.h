@@ -15,11 +15,20 @@ typedef struct _COMM_QUEUE_DEVICE_CONTEXT {
 } COMM_QUEUE_DEVICE_CONTEXT, * PCOMM_QUEUE_DEVICE_CONTEXT;
 
 
+typedef NTSTATUS (*COMM_IO_COMMAND)(
+        size_t InputBufferLength,
+        size_t OutputBufferLength,
+        PVOID *InputBuffer,
+        PVOID *OutputBuffer
+
+    );
+
 // TODO: Add driver relevant data here
 typedef struct _DRIVER_GLOBAL_DATA {
 
     BOOLEAN placeholder;
-
+    COMM_IO_COMMAND IoCallbacks[];
+    
 } DRIVER_GLOBAL_DATA;
 
 WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(COMM_QUEUE_DEVICE_CONTEXT, CommGetContextFromDevice);

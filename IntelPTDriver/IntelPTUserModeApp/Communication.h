@@ -10,6 +10,7 @@ public:
 	static DriverCommunication& Instance();
 
 	void Run();
+	bool IsRunning() { return isRunning; }
 
 	static
 		VOID
@@ -21,7 +22,18 @@ private:
 	
 	SERVICE_STATUS_HANDLE statusHandle;
 	
+	bool isRunning;
+	SERVICE_STATUS_HANDLE statusHandle;
+	HANDLE stopEvent;
+	SERVICE_STATUS serviceStatus;
 
+	DriverCommunication();
+	~DriverCommunication();
+
+	static VOID WINAPI ReportServiceStatus(
+		_In_ DWORD CurrentState,
+		_In_ DWORD Win32ExitCode,
+		_In_ DWORD WaitHint);
 
 	static
 	VOID

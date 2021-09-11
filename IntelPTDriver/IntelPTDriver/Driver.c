@@ -2,6 +2,7 @@
 #include "Device.h"
 #include "Comm.h"
 #include "Debug.h"
+#include "CommunicationCallbacks.h"
 
 DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD DeviceAdd;
@@ -32,7 +33,8 @@ IO_QUEUE_SETTINGS DEFAULT_QUEUE_SETTINGS = {
     .IoQueueIoStop = (PFN_WDF_IO_QUEUE_IO_STOP)CommIngonreOperation,
     .IoQueueIoResume = (PFN_WDF_IO_QUEUE_IO_RESUME)CommIngonreOperation,
     .IoQueueIoCanceledOnQueue = (PFN_WDF_IO_QUEUE_IO_CANCELED_ON_QUEUE)CommIngonreOperation,
-    .IoQueueIoDeviceControl = (PFN_WDF_IO_QUEUE_IO_DEVICE_CONTROL)CommIngonreOperation,
+
+    .IoQueueIoDeviceControl = (PFN_WDF_IO_QUEUE_IO_DEVICE_CONTROL)CommIoControlCallback,
     .IoQueueIoInternalDeviceControl = (PFN_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL)CommIngonreOperation
 };
 
