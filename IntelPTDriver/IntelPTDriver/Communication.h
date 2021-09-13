@@ -28,7 +28,7 @@ CommIngonreOperation(
 
 NTSTATUS
 InitCommQueue(
-    _In_ WDFDEVICE* ControlDevice,
+    _In_ WDFDEVICE ControlDevice,
     _In_ IO_QUEUE_SETTINGS* IoQueueSettings,
     _Inout_ WDFQUEUE* Queue
 );

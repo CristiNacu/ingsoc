@@ -5,7 +5,7 @@ static BOOLEAN gDefaultQueueInitialized = FALSE;
 
 NTSTATUS
 InitCommQueue(
-    _In_ WDFDEVICE                   *ControlDevice,
+    _In_ WDFDEVICE                   ControlDevice,
     _In_ IO_QUEUE_SETTINGS           *IoQueueSettings,
     _Inout_ WDFQUEUE                 *Queue
 )
@@ -18,16 +18,14 @@ InitCommQueue(
     DEBUG_STOP();
     DEBUG_PRINT("Device Addr %p\n", ControlDevice);
     DEBUG_STOP();
-    DEBUG_PRINT("Device %p\n", (*ControlDevice));
-    DEBUG_STOP();
     DEBUG_PRINT("Get context:\n");
 
-    if (ioQueueConfig.EvtIoDefault && !gDefaultQueueInitialized)
+    if (IoQueueSettings->DefaultQueue && !gDefaultQueueInitialized)
     {
         gDefaultQueueInitialized = TRUE;
         WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&ioQueueConfig, WdfIoQueueDispatchParallel);
     }
-    else if(ioQueueConfig.EvtIoDefault && gDefaultQueueInitialized)
+    else if(IoQueueSettings->DefaultQueue && gDefaultQueueInitialized)
     {
         KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "[ERROR] Only one default queue alowed\n"));
         return STATUS_ALREADY_INITIALIZED;
@@ -55,7 +53,7 @@ InitCommQueue(
 
     DEBUG_STOP();
 
-    status = WdfIoQueueCreate(*ControlDevice, &ioQueueConfig, NULL, Queue);
+    status = WdfIoQueueCreate(ControlDevice, &ioQueueConfig, NULL, Queue);
     if (!NT_SUCCESS(status))
     {
         DEBUG_PRINT("WdfIoQueueCreate error status %X\n", status);

@@ -91,7 +91,7 @@ DriverEntry(
     WDF_DRIVER_CONFIG config;
     WDF_OBJECT_ATTRIBUTES  attributes;
 
-    WDFDEVICE* device;
+    WDFDEVICE device;
     WDFQUEUE defaultQueue;
 
     // Initialize the driver configuration object to register the
@@ -150,7 +150,7 @@ DriverEntry(
     }
     DEBUG_PRINT("InitCommQueue OK\n");
 
-    WdfControlFinishInitializing(*device);
+    WdfControlFinishInitializing(device);
 
 
     //typedef struct _INTEL_PT_CAPABILITIES

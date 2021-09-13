@@ -90,7 +90,7 @@ InitDeviceControl(
 	_In_	PWDFDEVICE_INIT			DeviceInit,
 	_In_	PWDF_FILEOBJECT_CONFIG  FileConfig,
 	_In_	DEVICE_CONFIG_SETTINGS  *DeviceConfigSettings,
-	_Out_	WDFDEVICE				**WdfDevice
+	_Out_	WDFDEVICE				*WdfDevice
 )
 {
 	NTSTATUS					status;
@@ -118,7 +118,7 @@ InitDeviceControl(
 		goto cleanup;
 	}
 
-	*WdfDevice = &controlDevice;
+	*WdfDevice = controlDevice;
 	return status;
 
 cleanup:
@@ -135,13 +135,13 @@ NTSTATUS
 InitDevice(
 	_In_ WDFDRIVER WdfDriver,
 	_In_ DEVICE_SETTINGS *DeviceSettings,
-	_Out_ WDFDEVICE **Device
+	_Out_ WDFDEVICE *Device
 )
 {
 	NTSTATUS status;
 	PWDFDEVICE_INIT deviceInit;
 	WDF_FILEOBJECT_CONFIG fileConfig;
-	WDFDEVICE *device = NULL;
+	WDFDEVICE device = NULL;
 
 	DEBUG_PRINT("InitDevice\n");
 

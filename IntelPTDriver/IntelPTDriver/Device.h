@@ -61,7 +61,7 @@ NTSTATUS
 InitDevice(
 	_In_ WDFDRIVER WdfDriver,
 	_In_ DEVICE_SETTINGS* DeviceSettings,
-	_Out_ WDFDEVICE** Device
+	_Out_ WDFDEVICE* Device
 );
 
 #endif
