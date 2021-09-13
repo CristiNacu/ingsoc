@@ -19,9 +19,7 @@ public:
 		);
 
 private:
-	
-	SERVICE_STATUS_HANDLE statusHandle;
-	
+		
 	bool isRunning;
 	SERVICE_STATUS_HANDLE statusHandle;
 	HANDLE stopEvent;

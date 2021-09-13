@@ -1,6 +1,6 @@
 #include "DriverCommon.h"
 #include "Device.h"
-#include "Comm.h"
+#include "Communication.h"
 #include "Debug.h"
 #include "CommunicationCallbacks.h"
 
@@ -27,15 +27,19 @@ DEVICE_SETTINGS DEFAULT_DEVICE_SETTINGS = {
 };
 
 IO_QUEUE_SETTINGS DEFAULT_QUEUE_SETTINGS = {
-    .IoQueueIoDefault = (PFN_WDF_IO_QUEUE_IO_DEFAULT)CommIngonreOperation,
-    .IoQueueIoRead = (PFN_WDF_IO_QUEUE_IO_READ)CommIngonreOperation,
-    .IoQueueIoWrite = (PFN_WDF_IO_QUEUE_IO_WRITE)CommIngonreOperation,
-    .IoQueueIoStop = (PFN_WDF_IO_QUEUE_IO_STOP)CommIngonreOperation,
-    .IoQueueIoResume = (PFN_WDF_IO_QUEUE_IO_RESUME)CommIngonreOperation,
-    .IoQueueIoCanceledOnQueue = (PFN_WDF_IO_QUEUE_IO_CANCELED_ON_QUEUE)CommIngonreOperation,
+    
+    .DefaultQueue = TRUE,
+    .QueueType = WdfIoQueueDispatchParallel,
 
-    .IoQueueIoDeviceControl = (PFN_WDF_IO_QUEUE_IO_DEVICE_CONTROL)CommIoControlCallback,
-    .IoQueueIoInternalDeviceControl = (PFN_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL)CommIngonreOperation
+    .Callbacks.IoQueueIoDefault = (PFN_WDF_IO_QUEUE_IO_DEFAULT)CommIngonreOperation,
+    .Callbacks.IoQueueIoRead = (PFN_WDF_IO_QUEUE_IO_READ)CommIngonreOperation,
+    .Callbacks.IoQueueIoWrite = (PFN_WDF_IO_QUEUE_IO_WRITE)CommIngonreOperation,
+    .Callbacks.IoQueueIoStop = (PFN_WDF_IO_QUEUE_IO_STOP)CommIngonreOperation,
+    .Callbacks.IoQueueIoResume = (PFN_WDF_IO_QUEUE_IO_RESUME)CommIngonreOperation,
+    .Callbacks.IoQueueIoCanceledOnQueue = (PFN_WDF_IO_QUEUE_IO_CANCELED_ON_QUEUE)CommIngonreOperation,
+
+    .Callbacks.IoQueueIoDeviceControl = (PFN_WDF_IO_QUEUE_IO_DEVICE_CONTROL)CommIoControlCallback,
+    .Callbacks.IoQueueIoInternalDeviceControl = (PFN_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL)CommIngonreOperation
 };
 
 VOID
@@ -88,7 +92,7 @@ DriverEntry(
     WDF_OBJECT_ATTRIBUTES  attributes;
 
     WDFDEVICE* device;
-    COMM_QUEUE_DEVICE_CONTEXT ctxt = {0};
+    WDFQUEUE defaultQueue;
 
     // Initialize the driver configuration object to register the
     // entry point for the EvtDeviceAdd callback, KmdfHelloWorldEvtDeviceAdd
@@ -132,10 +136,11 @@ DriverEntry(
     DEBUG_STOP();
     DEBUG_PRINT("Device Addr %p\n", device);
 
+    // Initialize communication queue. The default, parallel one.
     status = InitCommQueue(
         device,
-        &ctxt,
-        &DEFAULT_QUEUE_SETTINGS
+        &DEFAULT_QUEUE_SETTINGS,
+        &defaultQueue
     );
     if (!NT_SUCCESS(status))
     {
@@ -144,6 +149,8 @@ DriverEntry(
         return status;
     }
     DEBUG_PRINT("InitCommQueue OK\n");
+
+    WdfControlFinishInitializing(*device);
 
 
     //typedef struct _INTEL_PT_CAPABILITIES

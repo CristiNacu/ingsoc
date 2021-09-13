@@ -150,12 +150,14 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Comm.c" />
+    <ClCompile Include="Communication.c" />
+    <ClCompile Include="CommunicationCallbacks.c" />
     <ClCompile Include="Device.c" />
     <ClCompile Include="Driver.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Comm.h" />
+    <ClInclude Include="Communication.h" />
+    <ClInclude Include="CommunicationCallbacks.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="DriverCommon.h" />

@@ -5,6 +5,7 @@
 #include <wdf.h>
 #include <wdfobject.h>
 #include <intrin.h>
+#include "Public.h"
 
 #define DEBUGGING_ACTIVE TRUE      //  Set to true for debugging logs / dbgbreaks
 
@@ -27,7 +28,7 @@ typedef NTSTATUS (*COMM_IO_COMMAND)(
 typedef struct _DRIVER_GLOBAL_DATA {
 
     BOOLEAN placeholder;
-    COMM_IO_COMMAND IoCallbacks[];
+    COMM_IO_COMMAND IoCallbacks[COMM_MAX_COMMUNICATION_FUNCTIONS];
     
 } DRIVER_GLOBAL_DATA;
 
