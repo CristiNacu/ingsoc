@@ -12,16 +12,26 @@ DEFINE_GUID(
 #define SAMPLE_DEVICE_OPEN_NAME      L"\\\\.\\SampleComm"
 
 
-typedef struct _COMM_PROT_TEST {
+typedef struct _COMM_DATA_TEST {
     int Magic;
-} COMM_PROT_TEST;
+} COMM_DATA_TEST;
 
-#define UM_TEST_MAGIC 0x1234
-#define KM_TEST_MAGIC 0x4321
+typedef struct _COMM_DATA_QUERY_IPT_CAPABILITIES {
+    int placeholder;
+} COMM_DATA_QUERY_IPT_CAPABILITIES;
+
+typedef struct _COMM_DATA_SETUP_IPT {
+    int placeholder;
+} COMM_DATA_SETUP_IPT;
 
 
-#define COMM_TEST                           0x1
-#define COMM_STOP_COMMUNICATION             0x2
-#define COMM_UPDATE_COMMUNICATION           0x3
-#define COMM_MAX_COMMUNICATION_FUNCTIONS    0x4
+#define UM_TEST_MAGIC                       0x1234
+#define KM_TEST_MAGIC                       0x4321
+
+
+
+#define COMM_TYPE_TEST                      0x0
+#define COMM_TYPE_QUERY_IPT_CAPABILITIES    0x1
+#define COMM_TYPE_SETUP_IPT                 0x2
+#define COMM_TYPE_MAX                       0x3
 #endif

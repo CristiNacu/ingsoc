@@ -42,6 +42,31 @@ IO_QUEUE_SETTINGS DEFAULT_QUEUE_SETTINGS = {
     .Callbacks.IoQueueIoInternalDeviceControl = (PFN_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL)CommIngonreOperation
 };
 
+COMM_COMMUNICATION_DESCRIPTOR DEFAULT_COMMAND_CALLBACKS[] = {
+
+    // COMM_TYPE_TEST                       0x0
+    {
+        CommandTest,
+        sizeof(COMM_DATA_TEST),
+        sizeof(COMM_DATA_TEST)
+    },
+
+    // COMM_TYPE_QUERY_IPT_CAPABILITIES     0x1
+    {
+        NULL,
+        0,
+        0
+    },
+
+    // COMM_TYPE_SETUP_IPT                  0x2
+    {
+        NULL,
+        0,
+        0
+    }
+};
+
+
 VOID
 DriverUnload(
     IN WDFDRIVER Driver
@@ -101,6 +126,10 @@ DriverEntry(
 
     config.EvtDriverUnload = DriverUnload;
     attributes.EvtCleanupCallback = SerialEvtDriverContextCleanup;
+    
+    // Set Driver constants
+    gDriverData.IoCallbacks = DEFAULT_COMMAND_CALLBACKS;
+
 
     // Create the driver object
     DEBUG_STOP();

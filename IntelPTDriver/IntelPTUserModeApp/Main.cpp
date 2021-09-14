@@ -45,14 +45,14 @@ main(
 	}
 	printf_s("CreateEvent OK\n");
 
-	COMM_PROT_TEST* commTestBufferIn = (COMM_PROT_TEST*)malloc(sizeof(COMM_PROT_TEST));
+	COMM_DATA_TEST* commTestBufferIn = (COMM_DATA_TEST*)malloc(sizeof(COMM_DATA_TEST));
 	if (!commTestBufferIn)
 	{
 		printf_s("malloc error\n");
 		return 0;
 	}
 
-	COMM_PROT_TEST* commTestBufferOut = (COMM_PROT_TEST*)malloc(sizeof(COMM_PROT_TEST));
+	COMM_DATA_TEST* commTestBufferOut = (COMM_DATA_TEST*)malloc(sizeof(COMM_DATA_TEST));
 	if (!commTestBufferOut)
 	{
 		printf_s("malloc error\n");
@@ -64,11 +64,11 @@ main(
 
 	BOOL status = DeviceIoControl(
 		driverHandle,
-		COMM_TEST,
+		COMM_TYPE_TEST,
 		commTestBufferIn,
-		sizeof(COMM_PROT_TEST),
+		sizeof(COMM_DATA_TEST),
 		commTestBufferOut,
-		sizeof(COMM_PROT_TEST),
+		sizeof(COMM_DATA_TEST),
 		NULL,
 		&overlapped);
 	if (status && (GetLastError() != ERROR_IO_PENDING))

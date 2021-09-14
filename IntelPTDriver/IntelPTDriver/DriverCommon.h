@@ -20,15 +20,20 @@ typedef NTSTATUS (*COMM_IO_COMMAND)(
         size_t InputBufferLength,
         size_t OutputBufferLength,
         PVOID *InputBuffer,
-        PVOID *OutputBuffer
-
+        PVOID *OutputBuffer,
+        UINT32 *bytesWritten
     );
+
+typedef struct _COMM_COMMUNICATION_DESCRIPTOR {
+    COMM_IO_COMMAND Callback;
+    size_t InputDataSize;
+    size_t OutputDataSize;
+} COMM_COMMUNICATION_DESCRIPTOR;
 
 // TODO: Add driver relevant data here
 typedef struct _DRIVER_GLOBAL_DATA {
 
-    BOOLEAN placeholder;
-    COMM_IO_COMMAND IoCallbacks[COMM_MAX_COMMUNICATION_FUNCTIONS];
+    COMM_COMMUNICATION_DESCRIPTOR *IoCallbacks;
     
 } DRIVER_GLOBAL_DATA;
 DRIVER_GLOBAL_DATA gDriverData;

@@ -12,6 +12,16 @@ CommIoControlCallback(
     _In_ ULONG IoControlCode
 );
 
+NTSTATUS
+CommandTest
+(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+);
+
 VOID
 CommIngonreOperation(
     _In_ WDFFILEOBJECT FileObject
