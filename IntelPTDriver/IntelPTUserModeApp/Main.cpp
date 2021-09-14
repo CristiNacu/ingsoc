@@ -2,9 +2,7 @@
 #include <stdio.h>
 
 #include "Communication.h"
-
-#define SAMPLE_DEVICE_OPEN_NAME			L"\\\\.\\SampleComm"
-#define COMM_TEST						0x1
+#include "Public.h"
 
 EXTERN_C
 int
@@ -20,7 +18,7 @@ main(
 	printf_s("Hello world app\n");
 	//DriverCommunication::Instance().Run();
 	DebugBreak();
-	
+
 	HANDLE driverHandle = CreateFileW(
 		SAMPLE_DEVICE_OPEN_NAME,
 		GENERIC_READ | GENERIC_WRITE,
@@ -47,17 +45,59 @@ main(
 	}
 	printf_s("CreateEvent OK\n");
 
+	COMM_PROT_TEST* commTestBufferIn = (COMM_PROT_TEST*)malloc(sizeof(COMM_PROT_TEST));
+	if (!commTestBufferIn)
+	{
+		printf_s("malloc error\n");
+		return 0;
+	}
+
+	COMM_PROT_TEST* commTestBufferOut = (COMM_PROT_TEST*)malloc(sizeof(COMM_PROT_TEST));
+	if (!commTestBufferOut)
+	{
+		printf_s("malloc error\n");
+		return 0;
+	}
+
+	commTestBufferIn->Magic = UM_TEST_MAGIC;
+	commTestBufferOut->Magic = 0;
+
 	BOOL status = DeviceIoControl(
 		driverHandle,
 		COMM_TEST,
-		NULL,
-		0,
-		NULL,
-		0,
+		commTestBufferIn,
+		sizeof(COMM_PROT_TEST),
+		commTestBufferOut,
+		sizeof(COMM_PROT_TEST),
 		NULL,
 		&overlapped);
+	if (status && (GetLastError() != ERROR_IO_PENDING))
+	{
+		printf_s("DeviceIoControl failed with status %d\n", GetLastError());
+		return 0;
+	}
 
-	printf_s("DeviceIoControl OK\n");
+	DWORD result = WaitForSingleObject(overlapped.hEvent, INFINITE);
+	if (result == WAIT_OBJECT_0)
+	{
+		printf_s("DeviceIoControl successful\n");
+	}
+	else
+	{
+		printf_s("DeviceIoControl unsuccessful\n");
+	}
+
+	if (commTestBufferOut->Magic == KM_TEST_MAGIC)
+	{
+		printf_s("DeviceIoControl did return required status\n");
+	}
+	else
+	{
+		printf_s("DeviceIoControl did not return required status\n");
+	}
+
+
+	printf_s("DeviceIoControl END\n");
 
 
 

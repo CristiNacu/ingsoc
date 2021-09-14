@@ -2,6 +2,7 @@
 #define _COMMUNICATION_H_
 #include <windows.h>
 
+
 class DriverCommunication
 {
 public:

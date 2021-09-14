@@ -12,6 +12,13 @@ DEFINE_GUID(
 #define SAMPLE_DEVICE_OPEN_NAME      L"\\\\.\\SampleComm"
 
 
+typedef struct _COMM_PROT_TEST {
+    int Magic;
+} COMM_PROT_TEST;
+
+#define UM_TEST_MAGIC 0x1234
+#define KM_TEST_MAGIC 0x4321
+
 
 #define COMM_TEST                           0x1
 #define COMM_STOP_COMMUNICATION             0x2

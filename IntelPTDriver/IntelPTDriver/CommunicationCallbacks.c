@@ -93,12 +93,46 @@ CommIoControlCallback(
     {
         DEBUG_STOP();
 
-        //status = CommHandleIoRequest(
-        //    IoControlCode,
-        //    Request,
-        //    OutputBufferLength,
-        //    InputBufferLength
-        //);
+        COMM_PROT_TEST *testOutBuffer = NULL;
+        COMM_PROT_TEST *testInBuffer = NULL;
+        size_t inBufferSize;
+        size_t outBufferSize;
+
+        status = WdfRequestRetrieveInputBuffer(
+            Request,
+            sizeof(COMM_PROT_TEST),
+            &testInBuffer,
+            &inBufferSize
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("Failed retrieveing input buffer\n");
+            goto cleanup;
+        }
+
+        status = WdfRequestRetrieveOutputBuffer(
+            Request,
+            sizeof(COMM_PROT_TEST),
+            &testOutBuffer,
+            &outBufferSize
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("Failed retrieveing output buffer\n");
+            goto cleanup;
+        }
+
+        if (testInBuffer->Magic == UM_TEST_MAGIC)
+        {
+            DEBUG_PRINT("Input value is OK. Writing output value...\n");
+            testOutBuffer->Magic = KM_TEST_MAGIC;
+        }
+        else
+        {
+            DEBUG_PRINT("Input value is NOT OK. Aborting...\n");
+            status = STATUS_UNSUCCESSFUL;
+            goto cleanup;
+        }
     }
     break;
     case COMM_STOP_COMMUNICATION:
@@ -127,6 +161,7 @@ CommIoControlCallback(
         break;
     }
 
+cleanup:
     if (completeRequest)
     {
         WdfRequestCompleteWithInformation(Request, status, bytesWritten);
