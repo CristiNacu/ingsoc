@@ -210,6 +210,10 @@ DeviceEvtFileCreate(
 	UNREFERENCED_PARAMETER(Device);
 	UNREFERENCED_PARAMETER(Request);
 	UNREFERENCED_PARAMETER(FileObject);
+
+	DEBUG_STOP();
+	WdfRequestComplete(Request, STATUS_SUCCESS);
+
 }
 
 VOID

@@ -1,6 +1,6 @@
 #include "CommunicationCallbacks.h"
 #include "Public.h"
-
+#include "Debug.h"
 NTSTATUS
 CommHandleRetrieveInputOutputBuffers(
     WDFREQUEST Request,
@@ -84,26 +84,21 @@ CommIoControlCallback(
     UINT32 bytesWritten = 0;
     BOOLEAN completeRequest = TRUE;
 
-    __debugbreak();
-
-    PCOMM_QUEUE_DEVICE_CONTEXT ctx = CommGetContextFromDevice(WdfIoQueueGetDevice(Queue));
-    if (!ctx)
-    {
-        WdfRequestCompleteWithInformation(Request, STATUS_INVALID_DEVICE_REQUEST, bytesWritten);
-        return;
-    }
-
+    DEBUG_STOP();
+    UNREFERENCED_PARAMETER(Queue);
 
     switch (IoControlCode)
     {
-    case COMM_INITIALIZE_COMMUNICATION:
+    case COMM_TEST:
     {
-        status = CommHandleIoRequest(
-            IoControlCode,
-            Request,
-            OutputBufferLength,
-            InputBufferLength
-        );
+        DEBUG_STOP();
+
+        //status = CommHandleIoRequest(
+        //    IoControlCode,
+        //    Request,
+        //    OutputBufferLength,
+        //    InputBufferLength
+        //);
     }
     break;
     case COMM_STOP_COMMUNICATION:

@@ -15,11 +15,6 @@ InitCommQueue(
 
     DEBUG_PRINT("InitCommQueue\n");
 
-    DEBUG_STOP();
-    DEBUG_PRINT("Device Addr %p\n", ControlDevice);
-    DEBUG_STOP();
-    DEBUG_PRINT("Get context:\n");
-
     if (IoQueueSettings->DefaultQueue && !gDefaultQueueInitialized)
     {
         gDefaultQueueInitialized = TRUE;
@@ -35,8 +30,6 @@ InitCommQueue(
         WDF_IO_QUEUE_CONFIG_INIT(&ioQueueConfig, WdfIoQueueDispatchManual);
     }
 
-    DEBUG_STOP();
-
     ioQueueConfig.Settings.Parallel.NumberOfPresentedRequests   = ((ULONG)-1);
 
     ioQueueConfig.EvtIoDefault                                  = IoQueueSettings->Callbacks.IoQueueIoDefault;
@@ -50,8 +43,6 @@ InitCommQueue(
     ioQueueConfig.EvtIoInternalDeviceControl                    = IoQueueSettings->Callbacks.IoQueueIoInternalDeviceControl;
 
     ioQueueConfig.PowerManaged                                  = WdfFalse;
-
-    DEBUG_STOP();
 
     status = WdfIoQueueCreate(ControlDevice, &ioQueueConfig, NULL, Queue);
     if (!NT_SUCCESS(status))
