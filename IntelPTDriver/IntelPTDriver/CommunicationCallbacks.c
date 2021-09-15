@@ -14,16 +14,12 @@ CommGetRequestBuffers(
 )
 {
     NTSTATUS status;
-    PVOID inBuffer = NULL;
-    PVOID outBuffer = NULL;
-    size_t inBufferSize;
-    size_t outBufferSize;
 
     status = WdfRequestRetrieveInputBuffer(
         Request,
         InBufferSize,
-        &inBuffer,
-        &inBufferSize
+        InBuffer,
+        InBufferActualSize
     );
     if (!NT_SUCCESS(status))
     {
@@ -34,19 +30,15 @@ CommGetRequestBuffers(
     status = WdfRequestRetrieveOutputBuffer(
         Request,
         OutBufferSize,
-        &outBuffer,
-        &outBufferSize
+        OutBuffer,
+        OutBufferActualSize
     );
     if (!NT_SUCCESS(status))
     {
-        DEBUG_PRINT("Failed retrieveing input buffer\n");
+        DEBUG_PRINT("Failed retrieveing output buffer\n");
         return status;
     }
 
-    *InBuffer = inBuffer;
-    *InBufferActualSize = inBufferSize;
-    *OutBuffer = outBuffer;
-    *OutBufferActualSize = outBufferSize;
     return status;
 }
 
@@ -93,8 +85,8 @@ CommIoControlCallback(
     status = gDriverData.IoCallbacks[IoControlCode].Callback(
         inBufferSize,
         outBufferSize,
-        &inBuffer,
-        &outBuffer,
+        inBuffer,
+        outBuffer,
         &bytesWritten
     );
     if (!NT_SUCCESS(status))
