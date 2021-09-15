@@ -58,8 +58,6 @@ CommIoControlCallback(
 
     DEBUG_STOP();
     UNREFERENCED_PARAMETER(Queue);
-    UNREFERENCED_PARAMETER(OutputBufferLength);
-    UNREFERENCED_PARAMETER(InputBufferLength);
 
     if (IoControlCode >= COMM_TYPE_MAX)
     {
@@ -69,8 +67,8 @@ CommIoControlCallback(
     
     status = CommGetRequestBuffers(
         Request,
-        gDriverData.IoCallbacks[IoControlCode].InputDataSize,
-        gDriverData.IoCallbacks[IoControlCode].OutputDataSize,
+        InputBufferLength,
+        OutputBufferLength,
         &inBuffer,
         &inBufferSize,
         &outBuffer,
@@ -82,7 +80,7 @@ CommIoControlCallback(
         goto cleanup;
     }
 
-    status = gDriverData.IoCallbacks[IoControlCode].Callback(
+    status = gDriverData.IoCallbacks[IoControlCode](
         inBufferSize,
         outBufferSize,
         inBuffer,
@@ -119,12 +117,19 @@ CommandTest
     UINT32* BytesWritten
 )
 {
+    // Validate Input and Output Size
+    if (InputBufferLength != sizeof(COMM_DATA_TEST))
+    {
+        return STATUS_INVALID_PARAMETER_1;
+    }
+    if (OutputBufferLength != sizeof(COMM_DATA_TEST))
+    {
+        return STATUS_INVALID_PARAMETER_2;
+    }
+
+    NTSTATUS status = STATUS_SUCCESS;
     COMM_DATA_TEST* inputData = (COMM_DATA_TEST*)InputBuffer;
     COMM_DATA_TEST* outputData = (COMM_DATA_TEST*)OutputBuffer;
-    NTSTATUS status = STATUS_SUCCESS;
-
-    UNREFERENCED_PARAMETER(InputBufferLength);
-    UNREFERENCED_PARAMETER(OutputBufferLength);
 
     if (inputData->Magic == UM_TEST_MAGIC)
     {
