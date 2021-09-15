@@ -1,47 +1,24 @@
 #ifndef _COMMUNICATION_H_
 #define _COMMUNICATION_H_
-#include <windows.h>
 
+#include <Windows.h>
 
-class DriverCommunication
-{
-public:
-	static const CHAR* const SERVICE_NAME_A;
-	static const WCHAR* const SERVICE_NAME_W;
-	static DriverCommunication& Instance();
+typedef struct _COMMUNICATION_MESSAGE {
 
-	void Run();
-	bool IsRunning() { return isRunning; }
+    DWORD MethodType;
+    PVOID DataIn;
+    DWORD DataInSize;
+    PVOID DataOut;
+    DWORD DataOutSize;
+    DWORD* BytesWritten;
 
-	static
-		VOID
-		WINAPI CbServiceControlHandler(
-			DWORD    dwControl
-		);
+} COMMUNICATION_MESSAGE;
 
-private:
-		
-	bool isRunning;
-	SERVICE_STATUS_HANDLE statusHandle;
-	HANDLE stopEvent;
-	SERVICE_STATUS serviceStatus;
-
-	DriverCommunication();
-	~DriverCommunication();
-
-	static VOID WINAPI ReportServiceStatus(
-		_In_ DWORD CurrentState,
-		_In_ DWORD Win32ExitCode,
-		_In_ DWORD WaitHint);
-
-	static
-	VOID
-	WINAPI DriverCallback(
-		DWORD   dwNumServicesArgs,
-		LPSTR* lpServiceArgVectors
-	);
-
-};
+NTSTATUS
+CommunicationSendMessage(
+    _In_ COMMUNICATION_MESSAGE* Message,
+    _Inout_opt_ OVERLAPPED** ResponseAvailable
+);
 
 
 #endif // !_COMMUNICATION_H_
