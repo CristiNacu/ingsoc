@@ -36,6 +36,9 @@
     <ClCompile Include="CommunicationCallbacks.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessorTrace.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Public.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CommunicationCallbacks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessorTrace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
