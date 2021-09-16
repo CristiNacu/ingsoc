@@ -2,6 +2,7 @@
 #include "Communication.h"
 #include <stdio.h>
 #include "Public.h"
+#include "Debug.h"
 
 NTSTATUS
 CommandTest(
@@ -88,6 +89,12 @@ CommandQueyPtCapabilities(
 {
 	UNREFERENCED_PARAMETER(InParameter);
 	UNREFERENCED_PARAMETER(Result);
+	DEBUG_STOP();
+
+
+
+	
+
 	return CMC_STATUS_SUCCESS;
 }
 

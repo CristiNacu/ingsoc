@@ -170,49 +170,5 @@ DriverEntry(
 
     WdfControlFinishInitializing(device);
 
-
-    //typedef struct _INTEL_PT_CAPABILITIES
-    //{
-    //
-    //    DWORD IntelPtAvailable : 1;
-    //    DWORD Cr3FilteringSupport : 1;
-    //    DWORD ConfigurablePsbAndCycleAccurateModeSupport : 1;
-    //    DWORD IpFilteringAndTraceStopSupport : 1;
-    //    DWORD MtcSupport : 1;
-    //    DWORD PtwriteSupport : 1;
-    //    DWORD PowerEventTraceSupport : 1;
-    //    DWORD PsbAndPmiPreservationSupport : 1;
-    //    DWORD TopaOutputSupport : 1;
-    //    DWORD TopaMultipleOutputSupport : 1;
-    //
-    //} INTEL_PT_CAPABILITIES;
-
-
-    //BOOLEAN IntelPtPresent = FALSE;
-
-    //DbgBreakPoint();
-    //int cpuidIntelpt[4] = { 0 };
-    //__cpuidex(cpuidIntelpt, 0x7, 0x0);
-    //KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "CPUID(EAX:0x7 ECX:0x0).EBX = %X\n", cpuidIntelpt[1]));
-    //if (cpuidIntelpt[1] & (1 << 25))
-    //{
-    //    IntelPtPresent = TRUE;
-    //    KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "IntelPT Capability Available\n"));
-    //}
-    //else
-    //{
-    //    KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "IntelPT Capability NOT Available\n"));
-    //}
-
-    //if (IntelPtPresent)
-    //{
-    //    /// Gather future capabilities of Intel PT
-
-    //    __cpuidex(cpuidIntelpt, 0x14, 0x0);
-    //    cpuidIntelpt[]
-
-    //}
-    //DbgBreakPoint();
-
     return status;
 }

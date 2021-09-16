@@ -38,7 +38,7 @@ COMMAND_DEFINITION_STRUCTURE Commands[] = {
     {
         "query",
         "queries PT capabilities on all processors",
-        CommandTest,
+        CommandQueyPtCapabilities,
         NULL
     },
     {
