@@ -40,6 +40,7 @@ CommandTest(
 
 	commTestBufferIn->Magic = UM_TEST_MAGIC;
 
+	Message->MethodType = COMM_TYPE_TEST;
 	Message->DataIn = commTestBufferIn;
 	Message->DataInSize = sizeof(COMM_DATA_TEST);
 	Message->DataOut = commTestBufferOut;
