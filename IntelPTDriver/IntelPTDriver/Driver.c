@@ -3,6 +3,7 @@
 #include "Communication.h"
 #include "Debug.h"
 #include "CommunicationCallbacks.h"
+#include "ProcessorTrace.h"
 
 DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD DeviceAdd;
@@ -48,7 +49,7 @@ COMM_IO_COMMAND DEFAULT_COMMAND_CALLBACKS[] = {
         CommandTest,
 
     // COMM_TYPE_QUERY_IPT_CAPABILITIES     0x1
-        NULL,
+        CommandGetPtCapabilities,
 
     // COMM_TYPE_SETUP_IPT                  0x2
         NULL
@@ -169,6 +170,8 @@ DriverEntry(
     DEBUG_PRINT("InitCommQueue OK\n");
 
     WdfControlFinishInitializing(device);
+
+    PtInit();
 
     return status;
 }

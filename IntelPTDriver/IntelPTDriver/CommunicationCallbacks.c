@@ -1,6 +1,7 @@
 #include "CommunicationCallbacks.h"
 #include "Public.h"
 #include "Debug.h"
+#include "ProcessorTrace.h"
 
 NTSTATUS 
 CommGetRequestBuffers(
@@ -13,30 +14,46 @@ CommGetRequestBuffers(
     _Out_ size_t *OutBufferActualSize
 )
 {
-    NTSTATUS status;
+    NTSTATUS status = STATUS_SUCCESS;
 
-    status = WdfRequestRetrieveInputBuffer(
-        Request,
-        InBufferSize,
-        InBuffer,
-        InBufferActualSize
-    );
-    if (!NT_SUCCESS(status))
+    if (InBufferSize)
     {
-        DEBUG_PRINT("Failed retrieveing input buffer\n");
-        return status;
+        status = WdfRequestRetrieveInputBuffer(
+            Request,
+            InBufferSize,
+            InBuffer,
+            InBufferActualSize
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("Failed retrieveing input buffer\n");
+            return status;
+        }
+    }
+    else
+    {
+        *InBufferActualSize = 0;
+        InBuffer = NULL;
     }
 
-    status = WdfRequestRetrieveOutputBuffer(
-        Request,
-        OutBufferSize,
-        OutBuffer,
-        OutBufferActualSize
-    );
-    if (!NT_SUCCESS(status))
+    if (OutBufferSize)
     {
-        DEBUG_PRINT("Failed retrieveing output buffer\n");
-        return status;
+        status = WdfRequestRetrieveOutputBuffer(
+            Request,
+            OutBufferSize,
+            OutBuffer,
+            OutBufferActualSize
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("Failed retrieveing output buffer\n");
+            return status;
+        }
+    }
+    else
+    {
+        *OutBufferActualSize = 0;
+        OutBuffer = NULL;
     }
 
     return status;
@@ -143,6 +160,42 @@ CommandTest
     }
 
     *BytesWritten = sizeof(COMM_DATA_TEST);
+    return status;
+}
+
+NTSTATUS
+CommandGetPtCapabilities
+(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+)
+{
+    UNREFERENCED_PARAMETER(InputBuffer);
+    UNREFERENCED_PARAMETER(InputBufferLength);
+
+    // Validate Input and Output Size
+    if (OutputBufferLength != sizeof(INTEL_PT_CAPABILITIES))
+    {
+        return STATUS_INVALID_PARAMETER_2;
+    }
+
+    NTSTATUS status = STATUS_SUCCESS;
+    INTEL_PT_CAPABILITIES* outputData = (INTEL_PT_CAPABILITIES*)OutputBuffer;
+
+    status = PTGetCapabilities(outputData);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PTGetCapabilities returned status %X\n", status);
+        *BytesWritten = 0;
+    }
+    else 
+    {
+        *BytesWritten = sizeof(INTEL_PT_CAPABILITIES);
+    }
+
     return status;
 }
 

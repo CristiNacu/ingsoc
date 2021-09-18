@@ -17,7 +17,7 @@ CommandTest(
 );
 
 NTSTATUS
-CommandQueyPtCapabilities(
+CommandQueryPtCapabilities(
     PVOID   InParameter,
     PVOID* Result
 );

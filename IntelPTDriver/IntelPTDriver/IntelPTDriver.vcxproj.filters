@@ -62,5 +62,8 @@
     <ClInclude Include="ProcessorTrace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="IntelProcessorTraceDefs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

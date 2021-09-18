@@ -162,6 +162,7 @@
     <ClInclude Include="Debug.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="DriverCommon.h" />
+    <ClInclude Include="IntelProcessorTraceDefs.h" />
     <ClInclude Include="ProcessorTrace.h" />
     <ClInclude Include="Public.h" />
   </ItemGroup>
