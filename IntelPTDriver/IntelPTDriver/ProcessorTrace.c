@@ -34,6 +34,9 @@ typedef enum CPUID_INDEX {
 #define IA32_RTIT_ADDR3_A                   0x586
 #define IA32_RTIT_ADDR3_B                   0x587
 
+#define PT_POOL_TAG                         'PTPT'
+
+#define PT_OPTION_IS_SUPPORTED(capability, option)  (((!capability) && (option)) ? FALSE : TRUE)
 
 // As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
 typedef struct _IA32_RTIT_CTL_STRUCTURE {
@@ -86,8 +89,8 @@ typedef struct _IA32_RTIT_STATUS_STRUCTURE {
 
 
 
-INTEL_PT_CAPABILITIES *gPtCapabilities = NULL;
-#define PT_POOL_TAG 'PTPT'
+INTEL_PT_CAPABILITIES   *gPtCapabilities = NULL;
+BOOLEAN                 gTraceEnabled = FALSE;
 
 NTSTATUS
 PtQueryCapabilities(
@@ -203,11 +206,171 @@ PTGetCapabilities(
     return STATUS_SUCCESS;
 }
 
-
 NTSTATUS
-PtSetup(
+PtGetStatus(
+    IA32_RTIT_STATUS_STRUCTURE *Status
 )
 {
+    unsigned long long ia32RtitStatusMsrShadow = __readmsr(IA32_RTIT_STATUS);
+    memcpy_s(
+        Status,
+        sizeof(IA32_RTIT_STATUS_STRUCTURE),
+        &ia32RtitStatusMsrShadow,
+        sizeof(unsigned long long)
+    );
 
     return STATUS_SUCCESS;
+}
+
+NTSTATUS
+PtEnableTrace(
+)
+{
+    unsigned long long ia32RtitCtlMsrShadow = __readmsr(IA32_RTIT_CTL);
+    IA32_RTIT_CTL_STRUCTURE* ia32RtitCtlMsrShadowPtr = 
+        (IA32_RTIT_CTL_STRUCTURE*) &ia32RtitCtlMsrShadow;
+
+    ia32RtitCtlMsrShadowPtr->TraceEn = TRUE;
+
+    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow);
+
+    gTraceEnabled = TRUE;
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
+PtDisableTrace(
+)
+{
+    unsigned long long ia32RtitMsrShadow = __readmsr(IA32_RTIT_CTL);
+    IA32_RTIT_CTL_STRUCTURE* ia32RtitMsrShadowPtr = 
+        (IA32_RTIT_CTL_STRUCTURE*) &ia32RtitMsrShadow;
+
+    ia32RtitMsrShadowPtr->TraceEn = FALSE;
+
+    __writemsr(IA32_RTIT_CTL, ia32RtitMsrShadow);
+
+    gTraceEnabled = FALSE;
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
+PtValidateConfigurationRequest(
+    INTEL_PT_CONFIGURATION* FilterConfiguration
+)
+{
+    INTEL_PT_CAPABILITIES capabilities;
+    NTSTATUS status;
+    status = PTGetCapabilities(
+        &capabilities
+    );
+    if(!NT_SUCCESS(status))
+        return status;
+
+    if (!PT_OPTION_IS_SUPPORTED( capabilities.IptCapabilities0.Ebx.ConfigurablePsbAndCycleAccurateModeSupport,
+        FilterConfiguration->PacketGenerationOptions.PacketCyc.Enable))
+        return STATUS_NOT_SUPPORTED;
+
+    if (!PT_OPTION_IS_SUPPORTED( capabilities.IptCapabilities0.Ebx.PtwriteSupport,
+        FilterConfiguration->PacketGenerationOptions.Misc.EnableFupPacketsAfterPtw))
+        return STATUS_NOT_SUPPORTED;
+
+    if (!PT_OPTION_IS_SUPPORTED(capabilities.IptCapabilities0.Ebx.MtcSupport,
+        FilterConfiguration->PacketGenerationOptions.PackteMtc.Enable))
+        return STATUS_NOT_SUPPORTED;
+
+    if (!PT_OPTION_IS_SUPPORTED(capabilities.IptCapabilities0.Ebx.PtwriteSupport,
+        FilterConfiguration->PacketGenerationOptions.PacketPtw.Enable))
+        return STATUS_NOT_SUPPORTED;
+
+    if (!PT_OPTION_IS_SUPPORTED(capabilities.IptCapabilities0.Ebx.PsbAndPmiPreservationSupport,
+        FilterConfiguration->PacketGenerationOptions.Misc.InjectPsbPmiOnEnable))
+        return STATUS_NOT_SUPPORTED;
+
+
+
+    if (!PT_OPTION_IS_SUPPORTED(capabilities.IptCapabilities0.Ebx.Cr3FilteringSupport,
+        FilterConfiguration->FilteringOptions.FilterCr3.Enable))
+        return STATUS_NOT_SUPPORTED;
+
+    if((capabilities.IptCapabilities0.Eax.MaximumValidSubleaf < 1) && 
+        FilterConfiguration->FilteringOptions.FilterRange.Enable)
+        return STATUS_NOT_SUPPORTED;
+
+    if (capabilities.IptCapabilities1.Eax.NumberOfAddressRanges < 
+        FilterConfiguration->FilteringOptions.FilterRange.NumberOfRanges)
+        return STATUS_NOT_SUPPORTED;
+
+    for (int crtAddrRng = 0; crtAddrRng < FilterConfiguration->FilteringOptions.FilterRange.NumberOfRanges; crtAddrRng++)
+        if(FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[crtAddrRng].RangeType >= RangeMax)
+            return STATUS_NOT_SUPPORTED;
+
+    // TODO: Validate frequencies with the processor capabilities
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
+PtConfigureProcessorTrace(
+    INTEL_PT_CONFIGURATION* FilterConfiguration
+)
+{
+    if (gTraceEnabled)
+        return STATUS_ALREADY_INITIALIZED;
+
+    IA32_RTIT_CTL_STRUCTURE ia32RtitMsrShadow = {0};
+
+    ia32RtitMsrShadow.CycEn                 = FilterConfiguration->PacketGenerationOptions.PacketCyc.Enable;
+    ia32RtitMsrShadow.OS                    = FilterConfiguration->FilteringOptions.FilterCpl.FilterKm;
+    ia32RtitMsrShadow.User                  = FilterConfiguration->FilteringOptions.FilterCpl.FilterUm;
+    ia32RtitMsrShadow.PwrEvtEn              = FilterConfiguration->PacketGenerationOptions.PacketPwr.Enable;
+    ia32RtitMsrShadow.FUPonPTW              = FilterConfiguration->PacketGenerationOptions.Misc.EnableFupPacketsAfterPtw;
+    ia32RtitMsrShadow.Cr3Filter             = FilterConfiguration->FilteringOptions.FilterCr3.Enable;
+    ia32RtitMsrShadow.MtcEn                 = FilterConfiguration->PacketGenerationOptions.PackteMtc.Enable;
+    ia32RtitMsrShadow.TscEn                 = FilterConfiguration->PacketGenerationOptions.PacketTsc.Enable;
+    ia32RtitMsrShadow.DisRETC               = FilterConfiguration->PacketGenerationOptions.Misc.DisableRetCompression;
+    ia32RtitMsrShadow.PTWEn                 = FilterConfiguration->PacketGenerationOptions.PacketPtw.Enable;
+    ia32RtitMsrShadow.BranchEn              = FilterConfiguration->PacketGenerationOptions.PacketCofi.Enable;
+
+    ia32RtitMsrShadow.MtcFreq               = FilterConfiguration->PacketGenerationOptions.PackteMtc.Frequency;
+    ia32RtitMsrShadow.CycThresh             = FilterConfiguration->PacketGenerationOptions.PacketCyc.Frequency;
+    ia32RtitMsrShadow.PSBFreq               = FilterConfiguration->PacketGenerationOptions.Misc.PsbFrequency;
+
+    ia32RtitMsrShadow.Addr0Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].RangeType;
+    ia32RtitMsrShadow.Addr1Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].RangeType;
+    ia32RtitMsrShadow.Addr2Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].RangeType;
+    ia32RtitMsrShadow.Addr3Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].RangeType;
+
+    ia32RtitMsrShadow.InjectPsbPmiOnEnable  = FilterConfiguration->PacketGenerationOptions.Misc.InjectPsbPmiOnEnable;
+
+    // TODO: Configure output
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS 
+PtSetup(
+    INTEL_PT_CONFIGURATION* FilterConfiguration
+)
+{
+    NTSTATUS status;
+
+    status = PtValidateConfigurationRequest(
+        FilterConfiguration
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
+
+    status = PtConfigureProcessorTrace(
+        FilterConfiguration
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
+
+    return status;
+
 }
