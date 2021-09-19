@@ -155,7 +155,8 @@ IpPayloadsAreLip %d\n	\
 NumberOfAddressRanges %d\n	\
 BitmapOfSupportedMtcPeriodEncodings %d\n	\
 BitmapOfSupportedCycleTresholdValues %d\n	\
-BitmapOfSupportedConfigurablePsbFrequencyEncoding %d",
+BitmapOfSupportedConfigurablePsbFrequencyEncoding %d\n	\
+NumberOfTopaOutputEntries %lld\n",
 			capabilities.IntelPtAvailable ? "AVAILABLE" : "UNAVAILABLE",
 			capabilities.IptCapabilities0.Eax,
 			capabilities.IptCapabilities0.Ebx,
@@ -181,7 +182,8 @@ BitmapOfSupportedConfigurablePsbFrequencyEncoding %d",
 			capabilities.IptCapabilities1.Eax.NumberOfAddressRanges,
 			capabilities.IptCapabilities1.Eax.BitmapOfSupportedMtcPeriodEncodings,
 			capabilities.IptCapabilities1.Ebx.BitmapOfSupportedCycleTresholdValues,
-			capabilities.IptCapabilities1.Ebx.BitmapOfSupportedConfigurablePsbFrequencyEncoding
+			capabilities.IptCapabilities1.Ebx.BitmapOfSupportedConfigurablePsbFrequencyEncoding,
+			capabilities.TopaOutputEntries
 		);
 
 	}

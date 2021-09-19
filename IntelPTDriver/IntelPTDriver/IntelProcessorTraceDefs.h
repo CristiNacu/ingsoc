@@ -86,6 +86,7 @@ typedef struct _INTEL_PT_CAPABILITIES
     unsigned short IntelPtAvailable;
     CPUID_LEAF_14_SUBLEAF_0 IptCapabilities0;
     CPUID_LEAF_14_SUBLEAF_1 IptCapabilities1;
+    unsigned long long    TopaOutputEntries;
 
 } INTEL_PT_CAPABILITIES;
 
