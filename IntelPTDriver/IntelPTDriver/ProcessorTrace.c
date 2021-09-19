@@ -38,55 +38,70 @@ typedef enum CPUID_INDEX {
 
 #define PT_OPTION_IS_SUPPORTED(capability, option)  (((!capability) && (option)) ? FALSE : TRUE)
 
+#define PT_OUTPUT_CONTIGNUOUS_BASE_MASK             0x7F
+#define PT_OUTPUT_TOPA_BASE_MASK                    0xFFF
+
 // As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
-typedef struct _IA32_RTIT_CTL_STRUCTURE {
+typedef union _IA32_RTIT_CTL_STRUCTURE {
 
-    unsigned long long TraceEn                  : 1;        // 0
-    unsigned long long CycEn                    : 1;        // 1  
-    unsigned long long OS                       : 1;        // 2
-    unsigned long long User                     : 1;        // 3
-    unsigned long long PwrEvtEn                 : 1;        // 4
-    unsigned long long FUPonPTW                 : 1;        // 5
-    unsigned long long FabricEn                 : 1;        // 6
-    unsigned long long Cr3Filter                : 1;        // 7
-    unsigned long long ToPA                     : 1;        // 8
-    unsigned long long MtcEn                    : 1;        // 9
-    unsigned long long TscEn                    : 1;        // 10
-    unsigned long long DisRETC                  : 1;        // 11
-    unsigned long long PTWEn                    : 1;        // 12
-    unsigned long long BranchEn                 : 1;        // 13
-    unsigned long long MtcFreq                  : 4;        // 17:14
-    unsigned long long ReservedZero0            : 1;        // 18
-    unsigned long long CycThresh                : 4;        // 22:19
-    unsigned long long ReservedZero1            : 1;        // 23
-    unsigned long long PSBFreq                  : 4;        // 27:24
-    unsigned long long ReservedZero2            : 4;        // 31:28
-    unsigned long long Addr0Cfg                 : 4;        // 35:32
-    unsigned long long Addr1Cfg                 : 4;        // 39:36
-    unsigned long long Addr2Cfg                 : 4;        // 43:40
-    unsigned long long Addr3Cfg                 : 4;        // 47:44
-    unsigned long long ReservedZero3            : 8;        // 55:48
-    unsigned long long InjectPsbPmiOnEnable     : 1;        // 56
-    unsigned long long ReservedZero4            : 7;        // 63:57
-
+    struct {
+        unsigned long long TraceEn : 1;        // 0
+        unsigned long long CycEn : 1;        // 1  
+        unsigned long long OS : 1;        // 2
+        unsigned long long User : 1;        // 3
+        unsigned long long PwrEvtEn : 1;        // 4
+        unsigned long long FUPonPTW : 1;        // 5
+        unsigned long long FabricEn : 1;        // 6
+        unsigned long long Cr3Filter : 1;        // 7
+        unsigned long long ToPA : 1;        // 8
+        unsigned long long MtcEn : 1;        // 9
+        unsigned long long TscEn : 1;        // 10
+        unsigned long long DisRETC : 1;        // 11
+        unsigned long long PTWEn : 1;        // 12
+        unsigned long long BranchEn : 1;        // 13
+        unsigned long long MtcFreq : 4;        // 17:14
+        unsigned long long ReservedZero0 : 1;        // 18
+        unsigned long long CycThresh : 4;        // 22:19
+        unsigned long long ReservedZero1 : 1;        // 23
+        unsigned long long PSBFreq : 4;        // 27:24
+        unsigned long long ReservedZero2 : 4;        // 31:28
+        unsigned long long Addr0Cfg : 4;        // 35:32
+        unsigned long long Addr1Cfg : 4;        // 39:36
+        unsigned long long Addr2Cfg : 4;        // 43:40
+        unsigned long long Addr3Cfg : 4;        // 47:44
+        unsigned long long ReservedZero3 : 8;        // 55:48
+        unsigned long long InjectPsbPmiOnEnable : 1;        // 56
+        unsigned long long ReservedZero4 : 7;        // 63:57
+    } Values;
+    unsigned long long Raw;
 } IA32_RTIT_CTL_STRUCTURE;
 
 // As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
-typedef struct _IA32_RTIT_STATUS_STRUCTURE {
-
-    unsigned long long FilterEn                 : 1;        // 0
-    unsigned long long ContextEn                : 1;        // 1  
-    unsigned long long TriggerEn                : 1;        // 2
-    unsigned long long Reserved0                : 1;        // 3
-    unsigned long long Error                    : 1;        // 4
-    unsigned long long Stopped                  : 1;        // 5
-    unsigned long long SendPSB                  : 1;        // 6
-    unsigned long long PendToPAPMI              : 1;        // 7
-    unsigned long long ReservedZero0            : 24;       // 31:8
-    unsigned long long PacketByteCnt            : 17;       // 48:32
-    unsigned long long Reserved1                : 15;       // 10
+typedef union _IA32_RTIT_STATUS_STRUCTURE {
+    struct {
+        unsigned long long FilterEn : 1;        // 0
+        unsigned long long ContextEn : 1;        // 1  
+        unsigned long long TriggerEn : 1;        // 2
+        unsigned long long Reserved0 : 1;        // 3
+        unsigned long long Error : 1;        // 4
+        unsigned long long Stopped : 1;        // 5
+        unsigned long long SendPSB : 1;        // 6
+        unsigned long long PendToPAPMI : 1;        // 7
+        unsigned long long ReservedZero0 : 24;       // 31:8
+        unsigned long long PacketByteCnt : 17;       // 48:32
+        unsigned long long Reserved1 : 15;       // 10
+    } Values;
+    unsigned long long Raw;
 } IA32_RTIT_STATUS_STRUCTURE;
 
+typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
+    struct {
+        unsigned long long LowerMask : 7;               // 7:0
+        unsigned long long MaskOrTableOffset : 25;      // 31:7
+        unsigned long long OutputOffset : 32;           // 64:32
+    } Values;
+    unsigned long long Raw;
+} IA32_RTIT_OUTPUT_MASK_STRUCTURE;
 
 
 INTEL_PT_CAPABILITIES   *gPtCapabilities = NULL;
@@ -211,14 +226,7 @@ PtGetStatus(
     IA32_RTIT_STATUS_STRUCTURE *Status
 )
 {
-    unsigned long long ia32RtitStatusMsrShadow = __readmsr(IA32_RTIT_STATUS);
-    memcpy_s(
-        Status,
-        sizeof(IA32_RTIT_STATUS_STRUCTURE),
-        &ia32RtitStatusMsrShadow,
-        sizeof(unsigned long long)
-    );
-
+    Status->Raw = __readmsr(IA32_RTIT_STATUS);
     return STATUS_SUCCESS;
 }
 
@@ -226,13 +234,12 @@ NTSTATUS
 PtEnableTrace(
 )
 {
-    unsigned long long ia32RtitCtlMsrShadow = __readmsr(IA32_RTIT_CTL);
-    IA32_RTIT_CTL_STRUCTURE* ia32RtitCtlMsrShadowPtr = 
-        (IA32_RTIT_CTL_STRUCTURE*) &ia32RtitCtlMsrShadow;
+    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
 
-    ia32RtitCtlMsrShadowPtr->TraceEn = TRUE;
+    ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
+    ia32RtitCtlMsrShadow.Values.TraceEn = TRUE;
 
-    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow);
+    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
     gTraceEnabled = TRUE;
     return STATUS_SUCCESS;
@@ -242,13 +249,12 @@ NTSTATUS
 PtDisableTrace(
 )
 {
-    unsigned long long ia32RtitMsrShadow = __readmsr(IA32_RTIT_CTL);
-    IA32_RTIT_CTL_STRUCTURE* ia32RtitMsrShadowPtr = 
-        (IA32_RTIT_CTL_STRUCTURE*) &ia32RtitMsrShadow;
+    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
 
-    ia32RtitMsrShadowPtr->TraceEn = FALSE;
+    ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
+    ia32RtitCtlMsrShadow.Values.TraceEn = FALSE;
 
-    __writemsr(IA32_RTIT_CTL, ia32RtitMsrShadow);
+    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
     gTraceEnabled = FALSE;
     return STATUS_SUCCESS;
@@ -305,9 +311,34 @@ PtValidateConfigurationRequest(
         if(FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[crtAddrRng].RangeType >= RangeMax)
             return STATUS_NOT_SUPPORTED;
 
+
+    if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion
+        && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_CONTIGNUOUS_BASE_MASK) != 0))
+        return STATUS_NOT_SUPPORTED;
+    else if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeToPA
+        && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_TOPA_BASE_MASK) != 0))
+        return STATUS_NOT_SUPPORTED;
+
     // TODO: Validate frequencies with the processor capabilities
 
     return STATUS_SUCCESS;
+}
+
+unsigned long long
+PtGenerateOutputMask(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+)
+{
+
+    // TODO: update this for ToPA
+
+    IA32_RTIT_OUTPUT_MASK_STRUCTURE result;
+
+    result.Values.LowerMask = PT_OUTPUT_CONTIGNUOUS_BASE_MASK;
+    result.Values.MaskOrTableOffset = Options->BufferSize >> 7;
+    result.Values.OutputOffset = 0;
+
+    return result.Raw;
 }
 
 NTSTATUS
@@ -318,32 +349,68 @@ PtConfigureProcessorTrace(
     if (gTraceEnabled)
         return STATUS_ALREADY_INITIALIZED;
 
-    IA32_RTIT_CTL_STRUCTURE ia32RtitMsrShadow = {0};
+    if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeTraceTransportSubsystem)
+        return STATUS_NOT_SUPPORTED;
 
-    ia32RtitMsrShadow.CycEn                 = FilterConfiguration->PacketGenerationOptions.PacketCyc.Enable;
-    ia32RtitMsrShadow.OS                    = FilterConfiguration->FilteringOptions.FilterCpl.FilterKm;
-    ia32RtitMsrShadow.User                  = FilterConfiguration->FilteringOptions.FilterCpl.FilterUm;
-    ia32RtitMsrShadow.PwrEvtEn              = FilterConfiguration->PacketGenerationOptions.PacketPwr.Enable;
-    ia32RtitMsrShadow.FUPonPTW              = FilterConfiguration->PacketGenerationOptions.Misc.EnableFupPacketsAfterPtw;
-    ia32RtitMsrShadow.Cr3Filter             = FilterConfiguration->FilteringOptions.FilterCr3.Enable;
-    ia32RtitMsrShadow.MtcEn                 = FilterConfiguration->PacketGenerationOptions.PackteMtc.Enable;
-    ia32RtitMsrShadow.TscEn                 = FilterConfiguration->PacketGenerationOptions.PacketTsc.Enable;
-    ia32RtitMsrShadow.DisRETC               = FilterConfiguration->PacketGenerationOptions.Misc.DisableRetCompression;
-    ia32RtitMsrShadow.PTWEn                 = FilterConfiguration->PacketGenerationOptions.PacketPtw.Enable;
-    ia32RtitMsrShadow.BranchEn              = FilterConfiguration->PacketGenerationOptions.PacketCofi.Enable;
+    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow = {0};
 
-    ia32RtitMsrShadow.MtcFreq               = FilterConfiguration->PacketGenerationOptions.PackteMtc.Frequency;
-    ia32RtitMsrShadow.CycThresh             = FilterConfiguration->PacketGenerationOptions.PacketCyc.Frequency;
-    ia32RtitMsrShadow.PSBFreq               = FilterConfiguration->PacketGenerationOptions.Misc.PsbFrequency;
+    ia32RtitCtlMsrShadow.Values.CycEn                  = FilterConfiguration->PacketGenerationOptions.PacketCyc.Enable;
+    ia32RtitCtlMsrShadow.Values.OS                     = FilterConfiguration->FilteringOptions.FilterCpl.FilterKm;
+    ia32RtitCtlMsrShadow.Values.User                   = FilterConfiguration->FilteringOptions.FilterCpl.FilterUm;
+    ia32RtitCtlMsrShadow.Values.PwrEvtEn               = FilterConfiguration->PacketGenerationOptions.PacketPwr.Enable;
+    ia32RtitCtlMsrShadow.Values.FUPonPTW               = FilterConfiguration->PacketGenerationOptions.Misc.EnableFupPacketsAfterPtw;
+    ia32RtitCtlMsrShadow.Values.Cr3Filter              = FilterConfiguration->FilteringOptions.FilterCr3.Enable;
+    ia32RtitCtlMsrShadow.Values.MtcEn                  = FilterConfiguration->PacketGenerationOptions.PackteMtc.Enable;
+    ia32RtitCtlMsrShadow.Values.TscEn                  = FilterConfiguration->PacketGenerationOptions.PacketTsc.Enable;
+    ia32RtitCtlMsrShadow.Values.DisRETC                = FilterConfiguration->PacketGenerationOptions.Misc.DisableRetCompression;
+    ia32RtitCtlMsrShadow.Values.PTWEn                  = FilterConfiguration->PacketGenerationOptions.PacketPtw.Enable;
+    ia32RtitCtlMsrShadow.Values.BranchEn               = FilterConfiguration->PacketGenerationOptions.PacketCofi.Enable;
 
-    ia32RtitMsrShadow.Addr0Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].RangeType;
-    ia32RtitMsrShadow.Addr1Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].RangeType;
-    ia32RtitMsrShadow.Addr2Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].RangeType;
-    ia32RtitMsrShadow.Addr3Cfg              = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].RangeType;
+    ia32RtitCtlMsrShadow.Values.MtcFreq                = FilterConfiguration->PacketGenerationOptions.PackteMtc.Frequency;
+    ia32RtitCtlMsrShadow.Values.CycThresh              = FilterConfiguration->PacketGenerationOptions.PacketCyc.Frequency;
+    ia32RtitCtlMsrShadow.Values.PSBFreq                = FilterConfiguration->PacketGenerationOptions.Misc.PsbFrequency;
 
-    ia32RtitMsrShadow.InjectPsbPmiOnEnable  = FilterConfiguration->PacketGenerationOptions.Misc.InjectPsbPmiOnEnable;
+    ia32RtitCtlMsrShadow.Values.Addr0Cfg               = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].RangeType;
+    ia32RtitCtlMsrShadow.Values.Addr1Cfg               = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].RangeType;
+    ia32RtitCtlMsrShadow.Values.Addr2Cfg               = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].RangeType;
+    ia32RtitCtlMsrShadow.Values.Addr3Cfg               = FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].RangeType;
 
-    // TODO: Configure output
+    ia32RtitCtlMsrShadow.Values.InjectPsbPmiOnEnable   = FilterConfiguration->PacketGenerationOptions.Misc.InjectPsbPmiOnEnable;
+
+    ia32RtitCtlMsrShadow.Values.FabricEn               = 0;
+    ia32RtitCtlMsrShadow.Values.ToPA                   = FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion ? 0 : 1;
+
+    if (FilterConfiguration->FilteringOptions.FilterCr3.Enable)
+        __writemsr(IA32_RTIT_CR3_MATCH, FilterConfiguration->FilteringOptions.FilterCr3.Cr3Address);
+
+    if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].RangeType != RangeUnused)
+    {
+        __writemsr(IA32_RTIT_ADDR0_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR0_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
+    }
+
+    if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].RangeType != RangeUnused)
+    {
+        __writemsr(IA32_RTIT_ADDR1_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR1_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].EndAddress);
+    }
+
+    if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].RangeType != RangeUnused)
+    {
+        __writemsr(IA32_RTIT_ADDR2_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR2_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].EndAddress);
+    }
+
+    if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].RangeType != RangeUnused)
+    {
+        __writemsr(IA32_RTIT_ADDR3_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR3_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].EndAddress);
+    }
+
+    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress);
+    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, PtGenerateOutputMask(&FilterConfiguration->OutputOptions.OutputBufferOrToPARange));
+
+    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
     return STATUS_SUCCESS;
 }

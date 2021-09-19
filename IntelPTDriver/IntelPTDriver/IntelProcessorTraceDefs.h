@@ -104,7 +104,7 @@ typedef enum _INTEL_PT_RANGE_TYPE {
 
 typedef struct _INTEL_PT_RANGE_OPTIONS {
     void* BaseAddress;
-    unsigned long long AddressSize;
+    void* EndAddress;
     INTEL_PT_RANGE_TYPE RangeType;
 } INTEL_PT_RANGE_OPTIONS;
 
@@ -214,10 +214,35 @@ typedef struct _INTEL_PT_PACKET_GENERATION_OPTIONS {
     INTEL_PT_PACKET_MISC Misc;
 } INTEL_PT_PACKET_GENERATION_OPTIONS;
 
+//////////////////////////////////////////////////// Output 
+
+typedef enum _INTEL_PT_OUTPUT_TYPE {
+
+    PtOutputTypeSingleRegion,
+    PtOutputTypeToPA,
+    PtOutputTypeTraceTransportSubsystem,    // Unsupported?
+
+} INTEL_PT_OUTPUT_TYPE;
+
+typedef struct _INTEL_PT_OUTPUT_OPTIONS
+{
+    unsigned long long BufferBaseAddress;
+    unsigned long BufferSize;
+
+} INTEL_PT_OUTPUT_OPTIONS;
+
+typedef struct _INTEL_PT_OUTPUT_OPRTIONS {
+
+    INTEL_PT_OUTPUT_TYPE OutputType;
+    INTEL_PT_OUTPUT_OPTIONS OutputBufferOrToPARange;
+
+} INTEL_PT_OUTPUT_OPRTIONS;
+
 // Final structure for configuring IPT
 typedef struct _INTEL_PT_CONFIGURATION {
-    INTEL_PT_FILTERING_OPTIONS FilteringOptions;
-    INTEL_PT_PACKET_GENERATION_OPTIONS PacketGenerationOptions;
+    INTEL_PT_FILTERING_OPTIONS          FilteringOptions;
+    INTEL_PT_PACKET_GENERATION_OPTIONS  PacketGenerationOptions;
+    INTEL_PT_OUTPUT_OPRTIONS            OutputOptions;
 } INTEL_PT_CONFIGURATION;
 
 
