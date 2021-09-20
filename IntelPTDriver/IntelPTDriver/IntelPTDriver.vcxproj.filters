@@ -39,6 +39,9 @@
     <ClCompile Include="ProcessorTrace.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DriverUtils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Public.h">
@@ -63,6 +66,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="IntelProcessorTraceDefs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DriverUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

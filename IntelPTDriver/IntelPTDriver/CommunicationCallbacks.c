@@ -2,6 +2,7 @@
 #include "Public.h"
 #include "Debug.h"
 #include "ProcessorTrace.h"
+#include "DriverUtils.h"
 
 NTSTATUS 
 CommGetRequestBuffers(
@@ -218,8 +219,12 @@ CommandTestIptSetup
     }
 
     COMM_DATA_SETUP_IPT* data = (COMM_DATA_SETUP_IPT*)OutputBuffer;
-
+    PVOID bufferVaKm;
+    PVOID bufferPa;
+    PVOID bufferVaUm;
+    IA32_RTIT_STATUS_STRUCTURE statusPt;
     NTSTATUS status;
+
     INTEL_PT_CONFIGURATION filterConfiguration = {
         .FilteringOptions = {
             .FilterCpl = {
@@ -250,48 +255,21 @@ CommandTestIptSetup
         }
     };
 
-    PHYSICAL_ADDRESS minAddr = { .QuadPart = 0x0000000001000000 };
-    PHYSICAL_ADDRESS maxAddr = { .QuadPart = 0x0000001000000000 };
-    PHYSICAL_ADDRESS zero = { .QuadPart = 0 };
-
-
-    PVOID buffVa = MmAllocateContiguousMemorySpecifyCache(
+    status = DuAllocatePtBuffer(
         PAGE_SIZE,
-        minAddr,
-        maxAddr,
-        zero,
-        MmCached
-    );
-
-    PMDL mdl = IoAllocateMdl(
-        buffVa,
-        PAGE_SIZE,
-        FALSE,
-        FALSE,
-        NULL
-    );
-
-    MmBuildMdlForNonPagedPool(mdl);
-
-    PVOID umAddress = MmMapLockedPagesSpecifyCache(
-        mdl,
-        UserMode,
         MmCached,
-        NULL,
-        FALSE,
-        0
+        &bufferVaKm,
+        &bufferVaUm,
+        &bufferPa
     );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuAllocatePtBuffer Failed! Status %X\n", status);
+        return status;
+    }
 
-
-    RtlFillMemory(buffVa, PAGE_SIZE, 0);
-
-    PHYSICAL_ADDRESS buffPa = MmGetPhysicalAddress(
-        buffVa
-    );
-
-    filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferBaseAddress = (unsigned long long)buffPa.QuadPart;
+    filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferBaseAddress = (unsigned long long)bufferPa;
     filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferSize = PAGE_SIZE;
-
 
     status = PtSetup(&filterConfiguration);
     if (!NT_SUCCESS(status))
@@ -314,8 +292,6 @@ CommandTestIptSetup
         return status;
     }
 
-    IA32_RTIT_STATUS_STRUCTURE statusPt;
-
     status = PtGetStatus(&statusPt);
     if (!NT_SUCCESS(status))
     {
@@ -325,19 +301,19 @@ CommandTestIptSetup
 
     DEBUG_STOP();
 
-    char* bufferVaAsChar = (char*)buffVa;
+    char* bufferVaAsChar = (char*)bufferVaKm;
     for (unsigned int i = 0; i < PAGE_SIZE; i++)
     {
         DEBUG_PRINT("%x", bufferVaAsChar[i]);
     }
 
-    MmFreeContiguousMemorySpecifyCache(
-        buffVa,
-        PAGE_SIZE,
-        MmCached
-    );
+    //MmFreeContiguousMemorySpecifyCache(
+    //    bufferVaKm,
+    //    PAGE_SIZE,
+    //    MmCached
+    //);
 
-    data->BufferAddress = umAddress;
+    data->BufferAddress = bufferVaUm;
     data->BufferSize = PAGE_SIZE;
 
     *BytesWritten = sizeof(COMM_DATA_SETUP_IPT);
