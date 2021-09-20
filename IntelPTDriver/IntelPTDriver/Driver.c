@@ -52,7 +52,7 @@ COMM_IO_COMMAND DEFAULT_COMMAND_CALLBACKS[] = {
         CommandGetPtCapabilities,
 
     // COMM_TYPE_SETUP_IPT                  0x2
-        NULL
+        CommandTestIptSetup
 
 };
 

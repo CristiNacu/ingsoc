@@ -8,14 +8,21 @@ PtInit(
 );
 
 NTSTATUS
-PTGetCapabilities(
+PtGetCapabilities(
     INTEL_PT_CAPABILITIES* Capabilities
 );
 
 NTSTATUS
 PtSetup(
-
+    INTEL_PT_CONFIGURATION* FilterConfiguration
 );
 
+NTSTATUS
+PtEnableTrace(
+);
+
+NTSTATUS
+PtDisableTrace(
+);
 
 #endif // !_PROCESSOR_TRACE_H_

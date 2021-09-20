@@ -96,8 +96,8 @@ typedef union _IA32_RTIT_STATUS_STRUCTURE {
 
 typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
     struct {
-        unsigned long long LowerMask : 7;               // 7:0
-        unsigned long long MaskOrTableOffset : 25;      // 31:7
+        // REMINDER: Lowest mask available is 128 -> last 7 bits are ALWAYS 1
+        unsigned long long MaskOrTableOffset : 32;      // 31:0
         unsigned long long OutputOffset : 32;           // 64:32
     } Values;
     unsigned long long Raw;
@@ -161,43 +161,7 @@ PtQueryCapabilities(
 }
 
 NTSTATUS
-PtInit(
-)
-{
-    NTSTATUS status = STATUS_SUCCESS;
-
-    DEBUG_STOP();
-
-    if (!gPtCapabilities)
-    {
-        gPtCapabilities = (INTEL_PT_CAPABILITIES*)ExAllocatePoolWithTag(
-            PagedPool,
-            sizeof(INTEL_PT_CAPABILITIES),
-            PT_POOL_TAG
-        );
-        if (!gPtCapabilities)
-        {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        status = PtQueryCapabilities(
-            gPtCapabilities
-        );
-        
-        if (!NT_SUCCESS(status))
-        {
-            ExFreePoolWithTag(
-                gPtCapabilities,
-                PT_POOL_TAG
-            );
-            gPtCapabilities = NULL;
-        }
-    }
-    return status;
-}
-
-NTSTATUS
-PTGetCapabilities(
+PtGetCapabilities(
     INTEL_PT_CAPABILITIES* Capabilities
 )
 {
@@ -234,30 +198,56 @@ NTSTATUS
 PtEnableTrace(
 )
 {
+    DEBUG_STOP();
+
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+    IA32_RTIT_STATUS_STRUCTURE status;
 
     ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
     ia32RtitCtlMsrShadow.Values.TraceEn = TRUE;
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
-    gTraceEnabled = TRUE;
-    return STATUS_SUCCESS;
+    PtGetStatus(&status);
+    if (status.Values.Error || !status.Values.TriggerEn)
+    {
+        DEBUG_PRINT("Pt TraceEnable failed\n");
+        DEBUG_STOP();
+        return STATUS_UNSUCCESSFUL;
+    }
+    else
+    {
+        gTraceEnabled = TRUE;
+        return STATUS_SUCCESS;
+    }
 }
 
 NTSTATUS
 PtDisableTrace(
 )
 {
+    DEBUG_STOP();
+
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+    IA32_RTIT_STATUS_STRUCTURE status;
 
     ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
     ia32RtitCtlMsrShadow.Values.TraceEn = FALSE;
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
-    gTraceEnabled = FALSE;
-    return STATUS_SUCCESS;
+    PtGetStatus(&status);
+    if (status.Values.Error || status.Values.TriggerEn)
+    {
+        DEBUG_PRINT("Pt TraceDisable failed\n");
+        DEBUG_STOP();
+        return STATUS_UNSUCCESSFUL;
+    }
+    else
+    {
+        gTraceEnabled = FALSE;
+        return STATUS_SUCCESS;
+    }
 }
 
 NTSTATUS
@@ -267,7 +257,7 @@ PtValidateConfigurationRequest(
 {
     INTEL_PT_CAPABILITIES capabilities;
     NTSTATUS status;
-    status = PTGetCapabilities(
+    status = PtGetCapabilities(
         &capabilities
     );
     if(!NT_SUCCESS(status))
@@ -319,6 +309,10 @@ PtValidateConfigurationRequest(
         && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_TOPA_BASE_MASK) != 0))
         return STATUS_NOT_SUPPORTED;
 
+    if ((FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion)
+        && (FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferSize < 128))
+        return STATUS_NOT_SUPPORTED;
+
     // TODO: Validate frequencies with the processor capabilities
 
     return STATUS_SUCCESS;
@@ -331,11 +325,13 @@ PtGenerateOutputMask(
 {
 
     // TODO: update this for ToPA
-
+    DEBUG_STOP();
     IA32_RTIT_OUTPUT_MASK_STRUCTURE result;
 
-    result.Values.LowerMask = PT_OUTPUT_CONTIGNUOUS_BASE_MASK;
-    result.Values.MaskOrTableOffset = Options->BufferSize >> 7;
+    // TODO: I assume the user always allocates & sends a buffer size power of 2. Is this ok? Think it trough. 
+    // If it is should check this in the validation process else i'll surely fuck up.
+    // Also result.Values.MaskOrTableOffset & Options->BufferBaseAddress must equal 0, if not generates runtime error... To be considered
+    result.Values.MaskOrTableOffset = Options->BufferSize - 1;
     result.Values.OutputOffset = 0;
 
     return result.Raw;
@@ -377,7 +373,7 @@ PtConfigureProcessorTrace(
 
     ia32RtitCtlMsrShadow.Values.InjectPsbPmiOnEnable   = FilterConfiguration->PacketGenerationOptions.Misc.InjectPsbPmiOnEnable;
 
-    ia32RtitCtlMsrShadow.Values.FabricEn               = 0;
+    ia32RtitCtlMsrShadow.Values.FabricEn               = 0; // PtOutputTypeTraceTransportSubsystem is not supported
     ia32RtitCtlMsrShadow.Values.ToPA                   = FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion ? 0 : 1;
 
     if (FilterConfiguration->FilteringOptions.FilterCr3.Enable)
@@ -407,12 +403,78 @@ PtConfigureProcessorTrace(
         __writemsr(IA32_RTIT_ADDR3_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].EndAddress);
     }
 
-    __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress);
-    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, PtGenerateOutputMask(&FilterConfiguration->OutputOptions.OutputBufferOrToPARange));
-
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
+    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, PtGenerateOutputMask(&FilterConfiguration->OutputOptions.OutputBufferOrToPARange));
+    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress);
+
 
     return STATUS_SUCCESS;
+}
+
+NTSTATUS
+PtInit(
+)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+
+    DEBUG_STOP();
+
+    if (!gPtCapabilities)
+    {
+        gPtCapabilities = (INTEL_PT_CAPABILITIES*)ExAllocatePoolWithTag(
+            PagedPool,
+            sizeof(INTEL_PT_CAPABILITIES),
+            PT_POOL_TAG
+        );
+        if (!gPtCapabilities)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        status = PtQueryCapabilities(
+            gPtCapabilities
+        );
+
+        if (!NT_SUCCESS(status))
+        {
+            ExFreePoolWithTag(
+                gPtCapabilities,
+                PT_POOL_TAG
+            );
+            gPtCapabilities = NULL;
+        }
+
+        IA32_RTIT_STATUS_STRUCTURE ptStatus;
+
+        status = PtGetStatus(
+            &ptStatus
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("PtGetStatus failed sith status %X\n", status);
+            return status;
+        }
+
+        gTraceEnabled = (ptStatus.Values.TriggerEn != 0);
+        if (gTraceEnabled)
+        {
+            DEBUG_PRINT("IntelPt is in use...\n");
+        }
+    }
+    return status;
+}
+
+void
+PtUninit(
+)
+{
+    if (gPtCapabilities)
+    {
+        ExFreePoolWithTag(
+            gPtCapabilities,
+            PT_POOL_TAG
+        );
+    }
 }
 
 NTSTATUS 
@@ -421,13 +483,23 @@ PtSetup(
 )
 {
     NTSTATUS status;
-
+    DEBUG_STOP();
     status = PtValidateConfigurationRequest(
         FilterConfiguration
     );
     if (!NT_SUCCESS(status))
     {
         return status;
+    }
+
+    if (gTraceEnabled)
+    {
+        status = PtDisableTrace();
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("PtDisableTrace returned status %X\n");
+            return status;
+        }
     }
 
     status = PtConfigureProcessorTrace(

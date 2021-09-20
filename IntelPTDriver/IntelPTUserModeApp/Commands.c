@@ -206,8 +206,47 @@ CommandSetupPt(
     _Out_   PVOID*  Result
 )
 {
-	UNREFERENCED_PARAMETER(InParameter);
-	UNREFERENCED_PARAMETER(Result);
+	NTSTATUS status;
+	INTEL_PT_CAPABILITIES capabilities;
+	COMMUNICATION_MESSAGE message;
+	DWORD bytesWritten;
+	OVERLAPPED* overlapped = NULL;
+
+
+	message.MethodType = COMM_TYPE_SETUP_IPT;
+	message.DataIn = NULL;
+	message.DataInSize = 0;
+	message.DataOut = NULL;
+	message.DataOutSize = 0;
+	message.BytesWritten = &bytesWritten;
+
+	status = CommunicationSendMessage(
+		&message,
+		&overlapped
+	);
+	if (!SUCCEEDED(status) || !overlapped)
+	{
+		*Result = NULL;
+
+		// ...
+		return STATUS_INVALID_HANDLE;
+	}
+
+	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
+	if (result == WAIT_OBJECT_0)
+	{
+		printf_s("Ok\n");
+	}
+	else
+	{
+		printf_s("DeviceIoControl unsuccessful\n");
+	}
+
+	if (overlapped)
+		free(overlapped);
+
+	*Result = NULL;
+
 	return CMC_STATUS_SUCCESS;
 }
 

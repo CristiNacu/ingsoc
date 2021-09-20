@@ -185,7 +185,7 @@ CommandGetPtCapabilities
     NTSTATUS status = STATUS_SUCCESS;
     INTEL_PT_CAPABILITIES* outputData = (INTEL_PT_CAPABILITIES*)OutputBuffer;
 
-    status = PTGetCapabilities(outputData);
+    status = PtGetCapabilities(outputData);
     if (!NT_SUCCESS(status))
     {
         DEBUG_PRINT("PTGetCapabilities returned status %X\n", status);
@@ -196,6 +196,97 @@ CommandGetPtCapabilities
         *BytesWritten = sizeof(INTEL_PT_CAPABILITIES);
     }
 
+    return status;
+}
+
+NTSTATUS
+CommandTestIptSetup
+(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+)
+{
+    UNREFERENCED_PARAMETER(InputBuffer);
+    UNREFERENCED_PARAMETER(InputBufferLength);
+    UNREFERENCED_PARAMETER(OutputBuffer);
+    UNREFERENCED_PARAMETER(OutputBufferLength);
+    NTSTATUS status;
+    INTEL_PT_CONFIGURATION filterConfiguration = {
+        .FilteringOptions = {
+            .FilterCpl = {
+                .FilterKm = TRUE,
+                .FilterUm = TRUE
+            },
+            .FilterCr3 = {
+                .Enable = FALSE,
+                .Cr3Address = 0
+            },
+            .FilterRange = {
+                .Enable = FALSE,
+                .NumberOfRanges = 0
+            }
+        },
+        .PacketGenerationOptions = {
+            .Misc = {0},
+            .PacketCofi.Enable = TRUE,
+            .PacketCyc = {0},
+            .PacketPtw = {0},
+            .PacketPwr = {0},
+            .PacketTsc = {0},
+            .PackteMtc = {0}
+        },
+        .OutputOptions = {
+            .OutputType = PtOutputTypeSingleRegion,
+            .OutputBufferOrToPARange = {0}
+        }
+    };
+    
+    PHYSICAL_ADDRESS minAddr = { .QuadPart = 0x0000000001000000 };
+    PHYSICAL_ADDRESS maxAddr = { .QuadPart = 0x0000001000000000 };
+    PHYSICAL_ADDRESS zero = { .QuadPart = 0 };
+
+
+    PVOID buffVa = MmAllocateContiguousMemorySpecifyCache(
+        PAGE_SIZE,
+        minAddr,
+        maxAddr,
+        zero,
+        MmCached
+    );
+
+    PHYSICAL_ADDRESS buffPa = MmGetPhysicalAddress(
+        buffVa
+    );
+
+    filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferBaseAddress = (unsigned long long)buffPa.QuadPart;
+    filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferSize = PAGE_SIZE;
+
+
+    status = PtSetup(&filterConfiguration);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PtSetup Failed! Status %X\n", status);
+        return status;
+    }
+
+    status = PtEnableTrace();
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PtEnableTrace Failed! Status %X\n", status);
+        return status;
+    }
+
+    status = PtDisableTrace();
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PtDisableTrace Failed! Status %X\n", status);
+        return status;
+    }
+
+    *BytesWritten = 0;
     return status;
 }
 
