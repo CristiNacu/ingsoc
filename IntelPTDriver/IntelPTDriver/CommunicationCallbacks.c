@@ -211,8 +211,14 @@ CommandTestIptSetup
 {
     UNREFERENCED_PARAMETER(InputBuffer);
     UNREFERENCED_PARAMETER(InputBufferLength);
-    UNREFERENCED_PARAMETER(OutputBuffer);
-    UNREFERENCED_PARAMETER(OutputBufferLength);
+
+    if (OutputBufferLength != sizeof(COMM_DATA_SETUP_IPT))
+    {
+        return STATUS_INVALID_PARAMETER_2;
+    }
+
+    COMM_DATA_SETUP_IPT* data = (COMM_DATA_SETUP_IPT*)OutputBuffer;
+
     NTSTATUS status;
     INTEL_PT_CONFIGURATION filterConfiguration = {
         .FilteringOptions = {
@@ -243,7 +249,7 @@ CommandTestIptSetup
             .OutputBufferOrToPARange = {0}
         }
     };
-    
+
     PHYSICAL_ADDRESS minAddr = { .QuadPart = 0x0000000001000000 };
     PHYSICAL_ADDRESS maxAddr = { .QuadPart = 0x0000001000000000 };
     PHYSICAL_ADDRESS zero = { .QuadPart = 0 };
@@ -256,6 +262,28 @@ CommandTestIptSetup
         zero,
         MmCached
     );
+
+    PMDL mdl = IoAllocateMdl(
+        buffVa,
+        PAGE_SIZE,
+        FALSE,
+        FALSE,
+        NULL
+    );
+
+    MmBuildMdlForNonPagedPool(mdl);
+
+    PVOID umAddress = MmMapLockedPagesSpecifyCache(
+        mdl,
+        UserMode,
+        MmCached,
+        NULL,
+        FALSE,
+        0
+    );
+
+
+    RtlFillMemory(buffVa, PAGE_SIZE, 0);
 
     PHYSICAL_ADDRESS buffPa = MmGetPhysicalAddress(
         buffVa
@@ -286,7 +314,33 @@ CommandTestIptSetup
         return status;
     }
 
-    *BytesWritten = 0;
+    IA32_RTIT_STATUS_STRUCTURE statusPt;
+
+    status = PtGetStatus(&statusPt);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PtDisableTrace Failed! Status %X\n", status);
+        return status;
+    }
+
+    DEBUG_STOP();
+
+    char* bufferVaAsChar = (char*)buffVa;
+    for (unsigned int i = 0; i < PAGE_SIZE; i++)
+    {
+        DEBUG_PRINT("%x", bufferVaAsChar[i]);
+    }
+
+    MmFreeContiguousMemorySpecifyCache(
+        buffVa,
+        PAGE_SIZE,
+        MmCached
+    );
+
+    data->BufferAddress = umAddress;
+    data->BufferSize = PAGE_SIZE;
+
+    *BytesWritten = sizeof(COMM_DATA_SETUP_IPT);
     return status;
 }
 

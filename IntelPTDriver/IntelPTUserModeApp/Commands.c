@@ -211,13 +211,13 @@ CommandSetupPt(
 	COMMUNICATION_MESSAGE message;
 	DWORD bytesWritten;
 	OVERLAPPED* overlapped = NULL;
-
+	COMM_DATA_SETUP_IPT data = {0};
 
 	message.MethodType = COMM_TYPE_SETUP_IPT;
 	message.DataIn = NULL;
 	message.DataInSize = 0;
-	message.DataOut = NULL;
-	message.DataOutSize = 0;
+	message.DataOut = &data;
+	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
 
 	status = CommunicationSendMessage(
@@ -235,7 +235,11 @@ CommandSetupPt(
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
 	if (result == WAIT_OBJECT_0)
 	{
-		printf_s("Ok\n");
+		printf("Buffer Size %d\nBuffer start addr %p\n", data.BufferSize, data.BufferAddress);
+		for (int i = 0; i < data.BufferSize; i++)
+		{
+			printf("%x", ((char*)data.BufferAddress)[i]);
+		}
 	}
 	else
 	{

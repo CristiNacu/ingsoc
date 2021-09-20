@@ -21,7 +21,8 @@ typedef struct _COMM_DATA_QUERY_IPT_CAPABILITIES {
 } COMM_DATA_QUERY_IPT_CAPABILITIES;
 
 typedef struct _COMM_DATA_SETUP_IPT {
-    int placeholder;
+    void* BufferAddress;
+    unsigned long long BufferSize;
 } COMM_DATA_SETUP_IPT;
 
 
