@@ -381,33 +381,33 @@ PtConfigureProcessorTrace(
     ia32RtitCtlMsrShadow.Values.ToPA                   = FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion ? 0 : 1;
 
     if (FilterConfiguration->FilteringOptions.FilterCr3.Enable)
-        __writemsr(IA32_RTIT_CR3_MATCH, FilterConfiguration->FilteringOptions.FilterCr3.Cr3Address);
+        __writemsr(IA32_RTIT_CR3_MATCH, (unsigned long long)FilterConfiguration->FilteringOptions.FilterCr3.Cr3Address);
 
     if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].RangeType != RangeUnused)
     {
-        __writemsr(IA32_RTIT_ADDR0_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress);
-        __writemsr(IA32_RTIT_ADDR0_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
+        __writemsr(IA32_RTIT_ADDR0_A, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR0_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
     }
 
     if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].RangeType != RangeUnused)
     {
-        __writemsr(IA32_RTIT_ADDR1_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].BaseAddress);
-        __writemsr(IA32_RTIT_ADDR1_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].EndAddress);
+        __writemsr(IA32_RTIT_ADDR1_A, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR1_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[1].EndAddress);
     }
 
     if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].RangeType != RangeUnused)
     {
-        __writemsr(IA32_RTIT_ADDR2_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].BaseAddress);
-        __writemsr(IA32_RTIT_ADDR2_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].EndAddress);
+        __writemsr(IA32_RTIT_ADDR2_A, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR2_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[2].EndAddress);
     }
 
     if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].RangeType != RangeUnused)
     {
-        __writemsr(IA32_RTIT_ADDR3_A, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].BaseAddress);
-        __writemsr(IA32_RTIT_ADDR3_B, FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].EndAddress);
+        __writemsr(IA32_RTIT_ADDR3_A, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].BaseAddress);
+        __writemsr(IA32_RTIT_ADDR3_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].EndAddress);
     }
 
-    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress);
+    __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress);
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, PtGenerateOutputMask(&FilterConfiguration->OutputOptions.OutputBufferOrToPARange));
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
