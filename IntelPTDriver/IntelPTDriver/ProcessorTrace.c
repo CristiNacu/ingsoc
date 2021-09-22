@@ -76,15 +76,6 @@ typedef union _IA32_RTIT_CTL_STRUCTURE {
     unsigned long long Raw;
 } IA32_RTIT_CTL_STRUCTURE;
 
-typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
-    struct {
-        // REMINDER: Lowest mask available is 128 -> last 7 bits are ALWAYS 1
-        unsigned long long MaskOrTableOffset : 32;      // 31:0
-        unsigned long long OutputOffset : 32;           // 64:32
-    } Values;
-    unsigned long long Raw;
-} IA32_RTIT_OUTPUT_MASK_STRUCTURE;
-
 
 INTEL_PT_CAPABILITIES   *gPtCapabilities = NULL;
 BOOLEAN                 gTraceEnabled = FALSE;

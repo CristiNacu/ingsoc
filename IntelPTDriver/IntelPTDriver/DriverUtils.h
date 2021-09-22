@@ -4,12 +4,20 @@
 #include "DriverCommon.h"
 
 NTSTATUS
-DuAllocatePtBuffer(
+DuAllocateBuffer(
     size_t BufferSizeInBytes,
     MEMORY_CACHING_TYPE CachingType,
-    PVOID* BufferVaKm,
-    PVOID* BufferVaUm,
+    BOOLEAN ZeroBuffer,
+    PVOID* BufferVa,
     PVOID* BufferPa
+);
+
+NTSTATUS
+DuMapBufferInUserspace(
+    PVOID BufferKernelAddress,
+    size_t BufferSizeInBytes,
+    PMDL* Mdl,
+    PVOID* BufferUserAddress
 );
 
 #endif

@@ -156,6 +156,7 @@
     <ClCompile Include="Driver.c" />
     <ClCompile Include="ProcessorTrace.c" />
     <ClCompile Include="DriverUtils.c" />
+    <ClCompile Include="ProcessorTraceOutput.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Communication.h" />
@@ -166,6 +167,7 @@
     <ClInclude Include="IntelProcessorTraceDefs.h" />
     <ClInclude Include="ProcessorTrace.h" />
     <ClInclude Include="DriverUtils.h" />
+    <ClInclude Include="ProcessorTraceOutput.h" />
     <ClInclude Include="Public.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

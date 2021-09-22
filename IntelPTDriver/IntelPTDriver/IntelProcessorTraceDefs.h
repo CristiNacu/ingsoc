@@ -220,6 +220,7 @@ typedef enum _INTEL_PT_OUTPUT_TYPE {
 
     PtOutputTypeSingleRegion,
     PtOutputTypeToPA,
+    PtOutputTypeToPASingleRegion,
     PtOutputTypeTraceTransportSubsystem,    // Unsupported?
 
 } INTEL_PT_OUTPUT_TYPE;
@@ -231,23 +232,37 @@ typedef struct _INTEL_PT_OUTPUT_OPTIONS
 
 } INTEL_PT_OUTPUT_OPTIONS;
 
-typedef struct _INTEL_PT_OUTPUT_OPRTIONS {
+
+typedef struct _INTEL_PT_OUTPUT_OPTIONS {
 
     INTEL_PT_OUTPUT_TYPE OutputType;
     INTEL_PT_OUTPUT_OPTIONS OutputBufferOrToPARange;
+    unsigned TopaEntries;
+    unsigned EntrySize;
+    
 
-} INTEL_PT_OUTPUT_OPRTIONS;
+} INTEL_PT_OUTPUT_OPTIONS;
 
 // Final structure for configuring IPT
 typedef struct _INTEL_PT_CONFIGURATION {
     INTEL_PT_FILTERING_OPTIONS          FilteringOptions;
     INTEL_PT_PACKET_GENERATION_OPTIONS  PacketGenerationOptions;
-    INTEL_PT_OUTPUT_OPRTIONS            OutputOptions;
+    INTEL_PT_OUTPUT_OPTIONS            OutputOptions;
 } INTEL_PT_CONFIGURATION;
 
 
 
 
+// This should be moved in ProcessorTraceOutput.c
+
+typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
+    struct {
+        // REMINDER: Lowest mask available is 128 -> last 7 bits are ALWAYS 1
+        unsigned long long MaskOrTableOffset : 32;      // 31:0
+        unsigned long long OutputOffset : 32;           // 64:32
+    } Values;
+    unsigned long long Raw;
+} IA32_RTIT_OUTPUT_MASK_STRUCTURE;
 
 
 
