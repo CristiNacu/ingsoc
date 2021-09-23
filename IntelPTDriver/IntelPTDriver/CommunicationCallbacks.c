@@ -224,6 +224,7 @@ CommandTestIptSetup
     PVOID bufferVaUm;
     IA32_RTIT_STATUS_STRUCTURE statusPt;
     NTSTATUS status;
+    PMDL mdl;
 
     INTEL_PT_CONFIGURATION filterConfiguration = {
         .FilteringOptions = {
@@ -250,21 +251,32 @@ CommandTestIptSetup
             .PackteMtc = {0}
         },
         .OutputOptions = {
-            .OutputType = PtOutputTypeSingleRegion,
-            .OutputBufferOrToPARange = {0}
+            .OutputType = PtOutputTypeSingleRegion
         }
     };
 
-    status = DuAllocatePtBuffer(
+    status = DuAllocateBuffer(
         PAGE_SIZE,
         MmCached,
+        TRUE,
         &bufferVaKm,
-        &bufferVaUm,
         &bufferPa
     );
     if (!NT_SUCCESS(status))
     {
-        DEBUG_PRINT("DuAllocatePtBuffer Failed! Status %X\n", status);
+        DEBUG_PRINT("DuAllocateBuffer Failed! Status %X\n", status);
+        return status;
+    }
+
+    status = DuMapBufferInUserspace(
+        bufferVaKm,
+        PAGE_SIZE,
+        &mdl,
+        &bufferVaUm
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuMapBufferInUserspace Failed! Status %X\n", status);
         return status;
     }
 

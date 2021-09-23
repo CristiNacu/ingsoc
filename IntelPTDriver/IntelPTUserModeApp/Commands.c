@@ -207,7 +207,6 @@ CommandSetupPt(
 )
 {
 	NTSTATUS status;
-	INTEL_PT_CAPABILITIES capabilities;
 	COMMUNICATION_MESSAGE message;
 	DWORD bytesWritten;
 	OVERLAPPED* overlapped = NULL;

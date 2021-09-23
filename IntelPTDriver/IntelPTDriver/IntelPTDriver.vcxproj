@@ -167,6 +167,7 @@
     <ClInclude Include="IntelProcessorTraceDefs.h" />
     <ClInclude Include="ProcessorTrace.h" />
     <ClInclude Include="DriverUtils.h" />
+    <ClInclude Include="ProcessorTraceControlStructure.h" />
     <ClInclude Include="ProcessorTraceOutput.h" />
     <ClInclude Include="Public.h" />
   </ItemGroup>

@@ -36,7 +36,7 @@ DuAllocateBuffer(
         *BufferVa = buffVa;
 
     if (BufferPa)
-        *BufferPa = buffPa.QuadPart;
+        *BufferPa = (PVOID)buffPa.QuadPart;
 
     return STATUS_SUCCESS;
 }
@@ -51,7 +51,7 @@ DuMapBufferInUserspace(
 {
     PMDL mdl = IoAllocateMdl(
         BufferKernelAddress,
-        BufferSizeInBytes,
+        (ULONG)BufferSizeInBytes,
         FALSE,
         FALSE,
         NULL
@@ -88,6 +88,7 @@ DuFreeUserspaceMapping(
     PMDL* Mdl
 )
 {
+    UNREFERENCED_PARAMETER(Mdl);
     return STATUS_NOT_IMPLEMENTED;
 }
 
@@ -98,5 +99,8 @@ DuFreeBuffer(
     MEMORY_CACHING_TYPE CachingType
 )
 {
+    UNREFERENCED_PARAMETER(BufferAddress);
+    UNREFERENCED_PARAMETER(BufferSizeInBytes);
+    UNREFERENCED_PARAMETER(CachingType);
     return STATUS_NOT_IMPLEMENTED;
 }

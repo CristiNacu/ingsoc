@@ -2,47 +2,9 @@
 #include "IntelProcessorTraceDefs.h"
 #include "DriverUtils.h"
 
-
-// 
-typedef enum _TOPA_ENTRY_SIZE_ENCODINGS {
-    Size4K, Size8K, Size16K, Size32K,
-    Size64K, Size128K, Size256K, Size512K,
-    Size1M, Size2M, Size4M, Size8M,
-    Size16M, Size32M, Size64M, Size128M
-} TOPA_ENTRY_SIZE_ENCODINGS;
-
-typedef struct _TOPA_ENTRY {
-    unsigned long long END : 1;                                 // 0
-    unsigned long long ReservedZero0 : 1;                       // 1
-    unsigned long long INT : 1;                                 // 2
-    unsigned long long ReservedZero1 : 1;                       // 3
-    unsigned long long STOP : 1;                                // 4
-    unsigned long long ReservedZero5 : 1;                       // 5
-    unsigned long long Size : 4;                                // 9:6
-    unsigned long long ReservedZero6 : 2;                       // 11:10
-    unsigned long long OutputRegionBasePhysicalAddress : 52;    // MAXPHYADDR-1:12
-} TOPA_ENTRY;
-
 #define INTEL_PT_OUTPUT_TAG 'IPTO'
 
-typedef struct _TOPA_TABLE {
-
-    PVOID *PhysicalAddresses;
-    TOPA_ENTRY Entries[];
-
-} TOPA_TABLE;
-
-typedef struct _OUTPUT_CONTROL_STRUCTURE {
-
-    INTEL_PT_OUTPUT_TYPE OutputType;
-    void* OutputBaseAddress;
-    IA32_RTIT_OUTPUT_MASK_STRUCTURE OutputMaskAddress;
-    
-} OUTPUT_CONTROL_STRUCTURE;
-
-
 INTEL_PT_CAPABILITIES gCapabilities;
-OUTPUT_CONTROL_STRUCTURE gOutputConfiguration;
 
 NTSTATUS
 PtoInit(
@@ -64,24 +26,34 @@ PtoInit(
 NTSTATUS
 PtoCreateTopaOutput(
     INTEL_PT_OUTPUT_OPTIONS* Options,
-    unsigned long long *TopaBaseAddress
+    PROCESSOR_TRACE_CONTROL_STRUCTURE* OutputConfiguration
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
+
+    if (!Options)
+        return STATUS_INVALID_PARAMETER_1;
+    if (!OutputConfiguration)
+        return STATUS_INVALID_PARAMETER_2;
 
     if (gCapabilities.IptCapabilities0.Ecx.TopaOutputSupport)
     {
         if (gCapabilities.IptCapabilities0.Ecx.TopaMultipleOutputEntriesSupport)
         {
-            gOutputConfiguration.OutputType = PtOutputTypeToPA;
+            OutputConfiguration->OutputType = PtOutputTypeToPA;
         }
         else
         {
-            gOutputConfiguration.OutputType = PtOutputTypeToPASingleRegion;
+            OutputConfiguration->OutputType = PtOutputTypeToPASingleRegion;
         }
     }
+    else
+    {
+        // TODO: find a better way to report errors
+        return STATUS_NOT_SUPPORTED;
+    }
 
-    if (gOutputConfiguration.OutputType == PtOutputTypeToPA)
+    if (OutputConfiguration->OutputType == PtOutputTypeToPA)
     {
         if (Options->TopaEntries > gCapabilities.TopaOutputEntries)
         {
@@ -90,7 +62,7 @@ PtoCreateTopaOutput(
 
         TOPA_TABLE *topaTable = ExAllocatePoolWithTag(
             NonPagedPool,
-            sizeof(TOPA_TABLE) + (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
+            sizeof(TOPA_TABLE),
             INTEL_PT_OUTPUT_TAG
         );
         if (!topaTable)
@@ -98,9 +70,9 @@ PtoCreateTopaOutput(
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
-        topaTable->PhysicalAddresses = (PVOID *)ExAllocatePoolWithTag(
+        topaTable->PhysicalAddresses = (PVOID)ExAllocatePoolWithTag(
             NonPagedPool,
-            (Options->TopaEntries) * sizeof(PVOID),
+            (Options->TopaEntries + 1) * sizeof(PVOID),
             INTEL_PT_OUTPUT_TAG
         );
         if (!topaTable->PhysicalAddresses)
@@ -108,9 +80,21 @@ PtoCreateTopaOutput(
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
+        topaTable->TopaTableBaseVa = (PVOID)ExAllocatePoolWithTag(
+            NonPagedPool,
+            (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
+            INTEL_PT_OUTPUT_TAG
+        );
+        if (!topaTable->TopaTableBaseVa)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
         PHYSICAL_ADDRESS topaTablePa = MmGetPhysicalAddress(
             topaTable
         );
+
+        topaTable->TopaTableBasePa = (PVOID)topaTablePa.QuadPart;
         
         unsigned frequency = 4;
 
@@ -132,17 +116,22 @@ PtoCreateTopaOutput(
             }
 
             topaTable->PhysicalAddresses[i] = bufferVa;
-            topaTable->Entries[i].OutputRegionBasePhysicalAddress = bufferPa;
+            topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
             if (i % frequency == 0)
-                topaTable->Entries[i].INT = TRUE;
+                topaTable->TopaTableBaseVa[i].INT = TRUE;
 
         }
 
-        topaTable->Entries[Options->TopaEntries].END = TRUE;
-        topaTable->Entries[Options->TopaEntries].OutputRegionBasePhysicalAddress = topaTablePa.QuadPart;
-        *TopaBaseAddress = topaTable;
+        topaTable->TopaTableBaseVa[Options->TopaEntries].END = TRUE;
+        topaTable->TopaTableBaseVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = topaTablePa.QuadPart;
+
+        OutputConfiguration->TopaTable = topaTable;
+        // Configure the trace to start at table 0 index 0 in the current ToPA
+        OutputConfiguration->OutputMask.Raw = 0;
+        OutputConfiguration->OutputBase = (PVOID)topaTablePa.QuadPart;
+
     }
-    else if (gOutputConfiguration.OutputType == PtOutputTypeSingleRegion)
+    else if (OutputConfiguration->OutputType == PtOutputTypeSingleRegion)
     {
         PVOID bufferVa;
         PVOID bufferPa;
@@ -161,7 +150,6 @@ PtoCreateTopaOutput(
             topaTable
         );
 
-
         status = DuAllocateBuffer(
             PAGE_SIZE,
             MmCached,
@@ -174,14 +162,19 @@ PtoCreateTopaOutput(
             return status;
         }
 
-        topaTable->Entries[0].OutputRegionBasePhysicalAddress = bufferPa;
-        topaTable->Entries[1].OutputRegionBasePhysicalAddress = topaTablePa.QuadPart;
-        topaTable->Entries[1].INT = TRUE;
+        topaTable->TopaTableBaseVa[0].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
+        topaTable->TopaTableBaseVa[1].OutputRegionBasePhysicalAddress = topaTablePa.QuadPart;
+        topaTable->TopaTableBaseVa[1].INT = TRUE;
 
+        OutputConfiguration->TopaTable = topaTable;
+
+        // Leave some space at the beginning of the buffer in case the interrupt doesn't fire exactly when the buffer is filled
+        OutputConfiguration->OutputMask.Values.OutputOffset = PAGE_SIZE / 4;
+        OutputConfiguration->OutputBase = (PVOID)topaTablePa.QuadPart;
     }
     else
     {
-        return STATUS_UNDEFINED_SCOPE;
+        status =  STATUS_UNDEFINED_SCOPE;
     }
 
     return status;
@@ -214,7 +207,7 @@ PtoSwapTopaBuffer(
     }
 
     *OldBufferVa = TopaTable->PhysicalAddresses[TableIndex];
-    TopaTable->Entries[TableIndex].OutputRegionBasePhysicalAddress = bufferPa;
+    TopaTable->TopaTableBaseVa[TableIndex].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
     TopaTable->PhysicalAddresses[TableIndex] = bufferVa;
 
     return status;
@@ -226,7 +219,8 @@ PtoCreateSingleRegionOutput(
     INTEL_PT_OUTPUT_OPTIONS* Options
 )
 {
-
+    UNREFERENCED_PARAMETER(Options);
+    return STATUS_SUCCESS;
 }
 
 
@@ -235,18 +229,23 @@ PtoCreateOutputStructure(
     INTEL_PT_OUTPUT_OPTIONS* Options
 )
 {
+    PROCESSOR_TRACE_CONTROL_STRUCTURE outputConfiguration;
+
     if (Options->OutputType == PtOutputTypeSingleRegion)
     {
-
+        return PtoCreateTopaOutput(
+            Options,
+            &outputConfiguration
+        );
     }
     else if (Options->OutputType == PtOutputTypeToPA)
     {
-
+        return STATUS_NOT_IMPLEMENTED;
     }
 
     else
     {
         return STATUS_NOT_SUPPORTED;
     }
-
+    
 }

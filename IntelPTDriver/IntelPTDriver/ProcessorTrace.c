@@ -1,4 +1,5 @@
 #include "ProcessorTrace.h"
+#include "ProcessorTraceControlStructure.h"
 
 typedef enum CPUID_INDEX {
     CpuidEax,
@@ -40,41 +41,6 @@ typedef enum CPUID_INDEX {
 
 #define PT_OUTPUT_CONTIGNUOUS_BASE_MASK             0x7F
 #define PT_OUTPUT_TOPA_BASE_MASK                    0xFFF
-
-// As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
-typedef union _IA32_RTIT_CTL_STRUCTURE {
-
-    struct {
-        unsigned long long TraceEn : 1;        // 0
-        unsigned long long CycEn : 1;        // 1  
-        unsigned long long OS : 1;        // 2
-        unsigned long long User : 1;        // 3
-        unsigned long long PwrEvtEn : 1;        // 4
-        unsigned long long FUPonPTW : 1;        // 5
-        unsigned long long FabricEn : 1;        // 6
-        unsigned long long Cr3Filter : 1;        // 7
-        unsigned long long ToPA : 1;        // 8
-        unsigned long long MtcEn : 1;        // 9
-        unsigned long long TscEn : 1;        // 10
-        unsigned long long DisRETC : 1;        // 11
-        unsigned long long PTWEn : 1;        // 12
-        unsigned long long BranchEn : 1;        // 13
-        unsigned long long MtcFreq : 4;        // 17:14
-        unsigned long long ReservedZero0 : 1;        // 18
-        unsigned long long CycThresh : 4;        // 22:19
-        unsigned long long ReservedZero1 : 1;        // 23
-        unsigned long long PSBFreq : 4;        // 27:24
-        unsigned long long ReservedZero2 : 4;        // 31:28
-        unsigned long long Addr0Cfg : 4;        // 35:32
-        unsigned long long Addr1Cfg : 4;        // 39:36
-        unsigned long long Addr2Cfg : 4;        // 43:40
-        unsigned long long Addr3Cfg : 4;        // 47:44
-        unsigned long long ReservedZero3 : 8;        // 55:48
-        unsigned long long InjectPsbPmiOnEnable : 1;        // 56
-        unsigned long long ReservedZero4 : 7;        // 63:57
-    } Values;
-    unsigned long long Raw;
-} IA32_RTIT_CTL_STRUCTURE;
 
 
 INTEL_PT_CAPABILITIES   *gPtCapabilities = NULL;
@@ -293,7 +259,7 @@ PtValidateConfigurationRequest(
 
 unsigned long long
 PtGenerateOutputMask(
-    INTEL_PT_OUTPUT_OPTIONS* Options
+    INTEL_PT_OUTPUT_BUFFER* Options
 )
 {
 

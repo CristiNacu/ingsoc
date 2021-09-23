@@ -77,5 +77,8 @@
     <ClInclude Include="ProcessorTraceOutput.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ProcessorTraceControlStructure.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
