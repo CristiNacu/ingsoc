@@ -48,4 +48,11 @@ PtGetStatus(
     IA32_RTIT_STATUS_STRUCTURE* Status
 );
 
+NTSTATUS
+PtoSwapTopaBuffer(
+    unsigned TableIndex,
+    TOPA_TABLE* TopaTable,
+    PVOID* OldBufferVa
+);
+
 #endif // !_PROCESSOR_TRACE_H_

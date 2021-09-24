@@ -218,12 +218,18 @@ CommandTestIptSetup
         return STATUS_INVALID_PARAMETER_2;
     }
 
+    UNREFERENCED_PARAMETER(InputBufferLength);
+    UNREFERENCED_PARAMETER(OutputBufferLength);
+    UNREFERENCED_PARAMETER(InputBuffer);
+    UNREFERENCED_PARAMETER(OutputBuffer);
+    UNREFERENCED_PARAMETER(BytesWritten);
+
     //COMM_DATA_SETUP_IPT* data = (COMM_DATA_SETUP_IPT*)OutputBuffer;
     //PVOID bufferVaKm;
     //PVOID bufferPa;
     //PVOID bufferVaUm;
     //IA32_RTIT_STATUS_STRUCTURE statusPt;
-    //NTSTATUS status;
+    NTSTATUS status;
     //PMDL mdl;
 
     INTEL_PT_CONFIGURATION filterConfiguration = {
@@ -251,19 +257,42 @@ CommandTestIptSetup
             .PackteMtc = {0}
         },
         .OutputOptions = {
-            0
+            .TopaEntries = 3
         }
     };
 
+    DEBUG_STOP();
 
+    status = PtSetup(
+        &filterConfiguration
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
 
-    UNREFERENCED_PARAMETER(InputBufferLength);
-    UNREFERENCED_PARAMETER(OutputBufferLength);
-    UNREFERENCED_PARAMETER(InputBuffer);
-    UNREFERENCED_PARAMETER(OutputBuffer);
-    UNREFERENCED_PARAMETER(BytesWritten);
+    PtEnableTrace();
+    //if (!NT_SUCCESS(status))
+    //{
+    //    return status;
+    //}
 
-    return STATUS_SUCCESS;
+    PtDisableTrace();
+    //if (!NT_SUCCESS(status))
+    //{
+    //    return status;
+    //}
+
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < PAGE_SIZE; j++)
+        {
+            DEBUG_PRINT("%x ", ((char*)filterConfiguration.OutputOptions.TopaTable->PhysicalAddresses[i])[j]);
+        }
+        DEBUG_PRINT("\n");
+    }
+
+    return status;
 }
 
 VOID

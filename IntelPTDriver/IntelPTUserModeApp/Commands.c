@@ -234,11 +234,12 @@ CommandSetupPt(
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
 	if (result == WAIT_OBJECT_0)
 	{
-		printf("Buffer Size %d\nBuffer start addr %p\n", data.BufferSize, data.BufferAddress);
-		for (int i = 0; i < data.BufferSize; i++)
-		{
-			printf("%x", ((char*)data.BufferAddress)[i]);
-		}
+		printf_s("Message received\n");
+		//printf("Buffer Size %d\nBuffer start addr %p\n", data.BufferSize, data.BufferAddress);
+		//for (int i = 0; i < data.BufferSize; i++)
+		//{
+		//	printf("%x", ((char*)data.BufferAddress)[i]);
+		//}
 	}
 	else
 	{

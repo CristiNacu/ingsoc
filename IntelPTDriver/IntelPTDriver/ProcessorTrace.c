@@ -1,5 +1,6 @@
 #include "ProcessorTrace.h"
 #include "ProcessorTraceControlStructure.h"
+#include "DriverUtils.h"
 
 typedef enum CPUID_INDEX {
     CpuidEax,
@@ -36,6 +37,7 @@ typedef enum CPUID_INDEX {
 #define IA32_RTIT_ADDR3_B                   0x587
 
 #define PT_POOL_TAG                         'PTPT'
+#define INTEL_PT_OUTPUT_TAG                 'IPTO'
 
 #define PT_OPTION_IS_SUPPORTED(capability, option)  (((!capability) && (option)) ? FALSE : TRUE)
 
@@ -344,10 +346,267 @@ PtConfigureProcessorTrace(
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, FilterConfiguration->OutputOptions.OutputMask.Raw);
-    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.TopaTable->TopaTableBasePa);
+    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBase);
 
 
     return STATUS_SUCCESS;
+}
+
+NTSTATUS
+PtoInitTopaOutput(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+
+    if (!Options)
+        return STATUS_INVALID_PARAMETER_1;
+    //if (!OutputConfiguration)
+    //    return STATUS_INVALID_PARAMETER_2;
+
+    if (gPtCapabilities->IptCapabilities0.Ecx.TopaOutputSupport)
+    {
+        if (gPtCapabilities->IptCapabilities0.Ecx.TopaMultipleOutputEntriesSupport)
+        {
+            Options->OutputType = PtOutputTypeToPA;
+        }
+        else
+        {
+            Options->OutputType = PtOutputTypeToPASingleRegion;
+        }
+    }
+    else
+    {
+        // TODO: find a better way to report errors
+        return STATUS_NOT_SUPPORTED;
+    }
+
+    if (Options->OutputType == PtOutputTypeToPA)
+    {
+        if (Options->TopaEntries > gPtCapabilities->TopaOutputEntries)
+        {
+            return STATUS_TOO_MANY_LINKS;
+        }
+
+        TOPA_TABLE* topaTable;
+        PVOID topaTablePa;
+
+        status = DuAllocateBuffer(
+            sizeof(TOPA_TABLE),
+            MmCached,
+            TRUE,
+            &topaTable,
+            &topaTablePa
+        );
+
+        if (!NT_SUCCESS(status) || !topaTable)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        topaTable->PhysicalAddresses = (PVOID)ExAllocatePoolWithTag(
+            NonPagedPool,
+            (Options->TopaEntries + 1) * sizeof(PVOID),
+            INTEL_PT_OUTPUT_TAG
+        );
+        if (!topaTable->PhysicalAddresses)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        topaTable->TopaTableBaseVa = (PVOID)ExAllocatePoolWithTag(
+            NonPagedPool,
+            (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
+            INTEL_PT_OUTPUT_TAG
+        );
+        if (!topaTable->TopaTableBaseVa)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        topaTable->TopaTableBasePa = (unsigned long long)topaTablePa;
+
+        unsigned frequency = 4;
+
+        for (unsigned i = 0; i < Options->TopaEntries; i++)
+        {
+            PVOID bufferVa;
+            PVOID bufferPa;
+
+            status = DuAllocateBuffer(
+                PAGE_SIZE,
+                MmCached,
+                TRUE,
+                &bufferVa,
+                &bufferPa
+            );
+            if (!NT_SUCCESS(status))
+            {
+                return status;
+            }
+
+            topaTable->PhysicalAddresses[i] = bufferVa;
+            topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
+            if (i % frequency == 0)
+                topaTable->TopaTableBaseVa[i].INT = TRUE;
+
+        }
+
+        topaTable->TopaTableBaseVa[Options->TopaEntries].END = TRUE;
+        topaTable->TopaTableBaseVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = (unsigned long long)topaTablePa;
+
+        Options->TopaTable = topaTable;
+        // Configure the trace to start at table 0 index 0 in the current ToPA
+        Options->OutputMask.Raw = 0x7F;
+        Options->OutputBase = (unsigned long long)topaTablePa;
+
+    }
+    else if (Options->OutputType == PtOutputTypeSingleRegion)
+    {
+        PVOID bufferVa;
+        PVOID bufferPa;
+
+        TOPA_TABLE* topaTable;
+        PVOID topaTablePa;
+
+        status = DuAllocateBuffer(
+            sizeof(TOPA_TABLE),
+            MmCached,
+            TRUE,
+            &topaTable,
+            &topaTablePa
+        );
+
+        if (!NT_SUCCESS(status) || !topaTable)
+        {
+            return STATUS_INSUFFICIENT_RESOURCES;
+        }
+
+        status = DuAllocateBuffer(
+            PAGE_SIZE,
+            MmCached,
+            TRUE,
+            &bufferVa,
+            &bufferPa
+        );
+        if (!NT_SUCCESS(status))
+        {
+            return status;
+        }
+
+        topaTable->TopaTableBaseVa[0].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
+        topaTable->TopaTableBaseVa[1].OutputRegionBasePhysicalAddress = (unsigned long long)topaTablePa;
+        topaTable->TopaTableBaseVa[1].INT = TRUE;
+
+        Options->TopaTable = topaTable;
+
+        // Leave some space at the beginning of the buffer in case the interrupt doesn't fire exactly when the buffer is filled
+        Options->OutputMask.Values.OutputOffset = PAGE_SIZE / 4;
+        Options->OutputBase = (unsigned long long)topaTablePa;
+    }
+    else
+    {
+        status = STATUS_UNDEFINED_SCOPE;
+    }
+
+    return status;
+}
+
+NTSTATUS
+PtoSwapTopaBuffer(
+    unsigned TableIndex,
+    TOPA_TABLE* TopaTable,
+    PVOID* OldBufferVa
+)
+{
+    NTSTATUS status;
+    PVOID bufferVa;
+    PVOID bufferPa;
+
+    if (!OldBufferVa)
+        return STATUS_INVALID_PARAMETER_3;
+
+    status = DuAllocateBuffer(
+        PAGE_SIZE,
+        MmCached,
+        TRUE,
+        &bufferVa,
+        &bufferPa
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
+
+    *OldBufferVa = TopaTable->PhysicalAddresses[TableIndex];
+    TopaTable->TopaTableBaseVa[TableIndex].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
+    TopaTable->PhysicalAddresses[TableIndex] = bufferVa;
+
+    return status;
+}
+
+
+NTSTATUS
+PtoInitSingleRegionOutput(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+)
+{
+    NTSTATUS status;
+    PVOID bufferVa;
+    PVOID bufferPa;
+
+    status = DuAllocateBuffer(
+        PAGE_SIZE,
+        MmCached,
+        TRUE,
+        &bufferVa,
+        &bufferPa
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
+
+    Options->OutputBase = (unsigned long long)bufferPa;
+    Options->OutputMask.Raw = 0;
+    Options->OutputMask.Values.MaskOrTableOffset = PAGE_SIZE - 1;
+
+    return status;
+}
+
+
+NTSTATUS
+PtoInitOutputStructure(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+)
+{
+    if (Options->OutputType == PtOutputTypeSingleRegion)
+    {
+        return PtoInitTopaOutput(
+            Options
+        );
+    }
+    else if (Options->OutputType == PtOutputTypeToPA)
+    {
+        return PtoInitSingleRegionOutput(
+            Options
+        );
+    }
+
+    else
+    {
+        return STATUS_NOT_SUPPORTED;
+    }
+
+}
+
+NTSTATUS
+PtoUninitOutputStructure(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+)
+{
+    UNREFERENCED_PARAMETER(Options);
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 NTSTATUS
@@ -423,8 +682,17 @@ PtSetup(
 {
     NTSTATUS status;
     DEBUG_STOP();
+
     status = PtValidateConfigurationRequest(
         FilterConfiguration
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
+
+    status = PtoInitOutputStructure(
+        &FilterConfiguration->OutputOptions
     );
     if (!NT_SUCCESS(status))
     {
