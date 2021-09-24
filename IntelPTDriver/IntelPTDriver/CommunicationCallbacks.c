@@ -218,13 +218,13 @@ CommandTestIptSetup
         return STATUS_INVALID_PARAMETER_2;
     }
 
-    COMM_DATA_SETUP_IPT* data = (COMM_DATA_SETUP_IPT*)OutputBuffer;
-    PVOID bufferVaKm;
-    PVOID bufferPa;
-    PVOID bufferVaUm;
-    IA32_RTIT_STATUS_STRUCTURE statusPt;
-    NTSTATUS status;
-    PMDL mdl;
+    //COMM_DATA_SETUP_IPT* data = (COMM_DATA_SETUP_IPT*)OutputBuffer;
+    //PVOID bufferVaKm;
+    //PVOID bufferPa;
+    //PVOID bufferVaUm;
+    //IA32_RTIT_STATUS_STRUCTURE statusPt;
+    //NTSTATUS status;
+    //PMDL mdl;
 
     INTEL_PT_CONFIGURATION filterConfiguration = {
         .FilteringOptions = {
@@ -251,85 +251,19 @@ CommandTestIptSetup
             .PackteMtc = {0}
         },
         .OutputOptions = {
-            .OutputType = PtOutputTypeSingleRegion
+            0
         }
     };
 
-    status = DuAllocateBuffer(
-        PAGE_SIZE,
-        MmCached,
-        TRUE,
-        &bufferVaKm,
-        &bufferPa
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("DuAllocateBuffer Failed! Status %X\n", status);
-        return status;
-    }
 
-    status = DuMapBufferInUserspace(
-        bufferVaKm,
-        PAGE_SIZE,
-        &mdl,
-        &bufferVaUm
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("DuMapBufferInUserspace Failed! Status %X\n", status);
-        return status;
-    }
 
-    filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferBaseAddress = (unsigned long long)bufferPa;
-    filterConfiguration.OutputOptions.OutputBufferOrToPARange.BufferSize = PAGE_SIZE;
+    UNREFERENCED_PARAMETER(InputBufferLength);
+    UNREFERENCED_PARAMETER(OutputBufferLength);
+    UNREFERENCED_PARAMETER(InputBuffer);
+    UNREFERENCED_PARAMETER(OutputBuffer);
+    UNREFERENCED_PARAMETER(BytesWritten);
 
-    status = PtSetup(&filterConfiguration);
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("PtSetup Failed! Status %X\n", status);
-        return status;
-    }
-
-    status = PtEnableTrace();
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("PtEnableTrace Failed! Status %X\n", status);
-        return status;
-    }
-
-    status = PtDisableTrace();
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("PtDisableTrace Failed! Status %X\n", status);
-        return status;
-    }
-
-    status = PtGetStatus(&statusPt);
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("PtDisableTrace Failed! Status %X\n", status);
-        return status;
-    }
-
-    DEBUG_STOP();
-
-    char* bufferVaAsChar = (char*)bufferVaKm;
-    for (unsigned int i = 0; i < PAGE_SIZE; i++)
-    {
-        DEBUG_PRINT("%x", bufferVaAsChar[i]);
-    }
-
-    //MmFreeContiguousMemorySpecifyCache(
-    //    bufferVaKm,
-    //    PAGE_SIZE,
-    //    MmCached
-    //);
-
-    data->BufferAddress = bufferVaUm;
-    data->BufferSize = PAGE_SIZE;
-
-    *BytesWritten = sizeof(COMM_DATA_SETUP_IPT);
-    return status;
+    return STATUS_SUCCESS;
 }
 
 VOID

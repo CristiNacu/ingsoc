@@ -241,40 +241,40 @@ PtValidateConfigurationRequest(
             return STATUS_NOT_SUPPORTED;
 
 
-    if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion
-        && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_CONTIGNUOUS_BASE_MASK) != 0))
-        return STATUS_NOT_SUPPORTED;
-    else if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeToPA
-        && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_TOPA_BASE_MASK) != 0))
-        return STATUS_NOT_SUPPORTED;
+    //if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion
+    //    && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_CONTIGNUOUS_BASE_MASK) != 0))
+    //    return STATUS_NOT_SUPPORTED;
+    //else if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeToPA
+    //    && ((FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress & PT_OUTPUT_TOPA_BASE_MASK) != 0))
+    //    return STATUS_NOT_SUPPORTED;
 
-    if ((FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion)
-        && (FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferSize < 128))
-        return STATUS_NOT_SUPPORTED;
+    //if ((FilterConfiguration->OutputOptions.OutputType == PtOutputTypeSingleRegion)
+    //    && (FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferSize < 128))
+    //    return STATUS_NOT_SUPPORTED;
 
     // TODO: Validate frequencies with the processor capabilities
 
     return STATUS_SUCCESS;
 }
 
-unsigned long long
-PtGenerateOutputMask(
-    INTEL_PT_OUTPUT_BUFFER* Options
-)
-{
-
-    // TODO: update this for ToPA
-    DEBUG_STOP();
-    IA32_RTIT_OUTPUT_MASK_STRUCTURE result;
-
-    // TODO: I assume the user always allocates & sends a buffer size power of 2. Is this ok? Think it trough. 
-    // If it is should check this in the validation process else i'll surely fuck up.
-    // Also result.Values.MaskOrTableOffset & Options->BufferBaseAddress must equal 0, if not generates runtime error... To be considered
-    result.Values.MaskOrTableOffset = Options->BufferSize - 1;
-    result.Values.OutputOffset = 0;
-
-    return result.Raw;
-}
+//unsigned long long
+//PtGenerateOutputMask(
+//    INTEL_PT_OUTPUT_BUFFER* Options
+//)
+//{
+//
+//    // TODO: update this for ToPA
+//    DEBUG_STOP();
+//    IA32_RTIT_OUTPUT_MASK_STRUCTURE result;
+//
+//    // TODO: I assume the user always allocates & sends a buffer size power of 2. Is this ok? Think it trough. 
+//    // If it is should check this in the validation process else i'll surely fuck up.
+//    // Also result.Values.MaskOrTableOffset & Options->BufferBaseAddress must equal 0, if not generates runtime error... To be considered
+//    result.Values.MaskOrTableOffset = Options->BufferSize - 1;
+//    result.Values.OutputOffset = 0;
+//
+//    return result.Raw;
+//}
 
 NTSTATUS
 PtConfigureProcessorTrace(
@@ -343,8 +343,8 @@ PtConfigureProcessorTrace(
     }
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
-    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, PtGenerateOutputMask(&FilterConfiguration->OutputOptions.OutputBufferOrToPARange));
-    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBufferOrToPARange.BufferBaseAddress);
+    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, FilterConfiguration->OutputOptions.OutputMask.Raw);
+    __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.TopaTable->TopaTableBasePa);
 
 
     return STATUS_SUCCESS;

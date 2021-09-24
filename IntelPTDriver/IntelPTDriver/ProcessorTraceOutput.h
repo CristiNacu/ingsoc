@@ -3,12 +3,27 @@
 #include "DriverCommon.h"
 #include "ProcessorTraceControlStructure.h"
 
+NTSTATUS
+PtoInit(
+    INTEL_PT_CAPABILITIES* Capabilities
+);
 
-//NTSTATUS
-//PtoCreateOutputStructure(
-//    INTEL_PT_OUTPUT_OPTIONS* Options,
-//    OUTPUT_CONFIGURATION_STRUCTURE* PtoConfiguration
-//);
+NTSTATUS
+PtoSwapTopaBuffer(
+    unsigned TableIndex,
+    TOPA_TABLE* TopaTable,
+    PVOID* OldBufferVa
+);
+
+NTSTATUS
+PtoInitOutputStructure(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+);
+
+NTSTATUS
+PtoUninitOutputStructure(
+    INTEL_PT_OUTPUT_OPTIONS* Options
+);
 
 
 

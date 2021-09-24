@@ -292,18 +292,21 @@ typedef enum _INTEL_PT_OUTPUT_TYPE {
 
 } INTEL_PT_OUTPUT_TYPE;
 
-typedef struct _INTEL_PT_OUTPUT_BUFFER
-{
-    unsigned long long BufferBaseAddress;
-    unsigned long BufferSize;
-
-} INTEL_PT_OUTPUT_BUFFER;
+typedef struct _TOPA_TABLE {
+    PVOID* PhysicalAddresses;
+    TOPA_ENTRY* TopaTableBaseVa;
+    unsigned long long TopaTableBasePa;
+} TOPA_TABLE;
 
 typedef struct _INTEL_PT_OUTPUT_OPTIONS {
     INTEL_PT_OUTPUT_TYPE OutputType;
-    INTEL_PT_OUTPUT_BUFFER OutputBufferOrToPARange;
     unsigned TopaEntries;
     unsigned EntrySize;
+
+    unsigned long long OutputBase;
+    IA32_RTIT_OUTPUT_MASK_STRUCTURE OutputMask;
+    TOPA_TABLE* TopaTable;
+
 } INTEL_PT_OUTPUT_OPTIONS;
 
 // Final structure for configuring IPT
