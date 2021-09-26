@@ -257,7 +257,8 @@ CommandTestIptSetup
             .PackteMtc = {0}
         },
         .OutputOptions = {
-            .TopaEntries = 3
+            .TopaEntries = 3,
+            .OutputType = PtOutputTypeToPA
         }
     };
 
@@ -283,11 +284,11 @@ CommandTestIptSetup
     //    return status;
     //}
 
-    for (int i = 0; i < 3; i++)
+    for (unsigned i = 0; i < filterConfiguration.OutputOptions.TopaEntries; i++)
     {
-        for (int j = 0; j < PAGE_SIZE; j++)
+        for (unsigned j = 0; j < PAGE_SIZE; j++)
         {
-            DEBUG_PRINT("%x ", ((char*)filterConfiguration.OutputOptions.TopaTable->PhysicalAddresses[i])[j]);
+            DEBUG_PRINT("%x ", ((char*)filterConfiguration.OutputOptions.TopaTable->VirtualTopaPagesAddresses[i])[j]);
         }
         DEBUG_PRINT("\n");
     }

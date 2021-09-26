@@ -293,9 +293,9 @@ typedef enum _INTEL_PT_OUTPUT_TYPE {
 } INTEL_PT_OUTPUT_TYPE;
 
 typedef struct _TOPA_TABLE {
-    PVOID* PhysicalAddresses;
-    TOPA_ENTRY* TopaTableBaseVa;
+    PVOID* VirtualTopaPagesAddresses;
     unsigned long long TopaTableBasePa;
+    TOPA_ENTRY* TopaTableBaseVa;
 } TOPA_TABLE;
 
 typedef struct _INTEL_PT_OUTPUT_OPTIONS {

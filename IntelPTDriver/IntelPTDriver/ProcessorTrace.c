@@ -358,7 +358,7 @@ PtoInitTopaOutput(
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
-
+    DEBUG_STOP();
     if (!Options)
         return STATUS_INVALID_PARAMETER_1;
     //if (!OutputConfiguration)
@@ -381,53 +381,54 @@ PtoInitTopaOutput(
         return STATUS_NOT_SUPPORTED;
     }
 
+    TOPA_TABLE* topaTable;
+    PVOID topaTablePa;
+    PVOID topaTableVa;
+    //unsigned frequency = 4;
+
+    // Allocate topa table, an interface for the actual pointer to the topa
+    topaTable = (TOPA_TABLE*)ExAllocatePoolWithTag(
+        NonPagedPool,
+        sizeof(TOPA_TABLE),
+        INTEL_PT_OUTPUT_TAG
+    );
+    if (!topaTable)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    // Allocate the topa virtual address pages array
+    topaTable->VirtualTopaPagesAddresses = (PVOID *)ExAllocatePoolWithTag(
+        NonPagedPool,
+        (Options->TopaEntries + 1) * sizeof(PVOID),
+        INTEL_PT_OUTPUT_TAG
+    );
+
+    // Allocate the actual topa
+    status = DuAllocateBuffer(
+        (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
+        MmCached,
+        TRUE,
+        &topaTableVa,
+        &topaTablePa
+    );
+    if (!NT_SUCCESS(status) || !topaTable)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    topaTable->TopaTableBaseVa = (TOPA_ENTRY*)topaTableVa;
+    topaTable->TopaTableBasePa = (unsigned long long)topaTablePa;
+
     if (Options->OutputType == PtOutputTypeToPA)
     {
+        // If the hardware cannot support that many entries, error 
         if (Options->TopaEntries > gPtCapabilities->TopaOutputEntries)
         {
             return STATUS_TOO_MANY_LINKS;
         }
 
-        TOPA_TABLE* topaTable;
-        PVOID topaTablePa;
-
-        status = DuAllocateBuffer(
-            sizeof(TOPA_TABLE),
-            MmCached,
-            TRUE,
-            &topaTable,
-            &topaTablePa
-        );
-
-        if (!NT_SUCCESS(status) || !topaTable)
-        {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        topaTable->PhysicalAddresses = (PVOID)ExAllocatePoolWithTag(
-            NonPagedPool,
-            (Options->TopaEntries + 1) * sizeof(PVOID),
-            INTEL_PT_OUTPUT_TAG
-        );
-        if (!topaTable->PhysicalAddresses)
-        {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        topaTable->TopaTableBaseVa = (PVOID)ExAllocatePoolWithTag(
-            NonPagedPool,
-            (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
-            INTEL_PT_OUTPUT_TAG
-        );
-        if (!topaTable->TopaTableBaseVa)
-        {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        topaTable->TopaTableBasePa = (unsigned long long)topaTablePa;
-
-        unsigned frequency = 4;
-
+        // Allocate a page for every topa entry
         for (unsigned i = 0; i < Options->TopaEntries; i++)
         {
             PVOID bufferVa;
@@ -445,15 +446,23 @@ PtoInitTopaOutput(
                 return status;
             }
 
-            topaTable->PhysicalAddresses[i] = bufferVa;
-            topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
-            if (i % frequency == 0)
-                topaTable->TopaTableBaseVa[i].INT = TRUE;
+            // Save the page virtual address so that it can be mapped in user space
+            topaTable->VirtualTopaPagesAddresses[i] = bufferVa;
+            // Set the topa entry to point at the current page
+            topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = ((unsigned long long)bufferPa) >> 12;
+            topaTable->TopaTableBaseVa[i].Size = Size4K;
+            //if (i % frequency == 0)
+            //    topaTable->TopaTableBaseVa[i].INT = TRUE;
 
         }
 
+        // Last entry will point back to the topa table -> circular buffer
+        topaTable->TopaTableBaseVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
         topaTable->TopaTableBaseVa[Options->TopaEntries].END = TRUE;
-        topaTable->TopaTableBaseVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = (unsigned long long)topaTablePa;
+        topaTable->TopaTableBaseVa[Options->TopaEntries].STOP = FALSE;
+        topaTable->TopaTableBaseVa[Options->TopaEntries].INT = FALSE;
+
+
 
         Options->TopaTable = topaTable;
         // Configure the trace to start at table 0 index 0 in the current ToPA
@@ -461,13 +470,10 @@ PtoInitTopaOutput(
         Options->OutputBase = (unsigned long long)topaTablePa;
 
     }
-    else if (Options->OutputType == PtOutputTypeSingleRegion)
+    else if (Options->OutputType == PtOutputTypeToPASingleRegion)
     {
         PVOID bufferVa;
         PVOID bufferPa;
-
-        TOPA_TABLE* topaTable;
-        PVOID topaTablePa;
 
         status = DuAllocateBuffer(
             sizeof(TOPA_TABLE),
@@ -494,8 +500,8 @@ PtoInitTopaOutput(
             return status;
         }
 
-        topaTable->TopaTableBaseVa[0].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
-        topaTable->TopaTableBaseVa[1].OutputRegionBasePhysicalAddress = (unsigned long long)topaTablePa;
+        topaTable->TopaTableBaseVa[0].OutputRegionBasePhysicalAddress = ((ULONG64)bufferPa) >> 12;
+        topaTable->TopaTableBaseVa[1].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
         topaTable->TopaTableBaseVa[1].INT = TRUE;
 
         Options->TopaTable = topaTable;
@@ -538,9 +544,9 @@ PtoSwapTopaBuffer(
         return status;
     }
 
-    *OldBufferVa = TopaTable->PhysicalAddresses[TableIndex];
-    TopaTable->TopaTableBaseVa[TableIndex].OutputRegionBasePhysicalAddress = (ULONG64)bufferPa;
-    TopaTable->PhysicalAddresses[TableIndex] = bufferVa;
+    *OldBufferVa = TopaTable->VirtualTopaPagesAddresses[TableIndex];
+    TopaTable->TopaTableBaseVa[TableIndex].OutputRegionBasePhysicalAddress = ((ULONG64)bufferPa) >> 12;
+    TopaTable->VirtualTopaPagesAddresses[TableIndex] = bufferVa;
 
     return status;
 }
@@ -580,13 +586,13 @@ PtoInitOutputStructure(
     INTEL_PT_OUTPUT_OPTIONS* Options
 )
 {
-    if (Options->OutputType == PtOutputTypeSingleRegion)
+    if (Options->OutputType == PtOutputTypeToPASingleRegion || Options->OutputType == PtOutputTypeToPA)
     {
         return PtoInitTopaOutput(
             Options
         );
     }
-    else if (Options->OutputType == PtOutputTypeToPA)
+    else if (Options->OutputType == PtOutputTypeSingleRegion)
     {
         return PtoInitSingleRegionOutput(
             Options
