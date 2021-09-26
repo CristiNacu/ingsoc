@@ -36,6 +36,42 @@ typedef enum CPUID_INDEX {
 #define IA32_RTIT_ADDR3_A                   0x586
 #define IA32_RTIT_ADDR3_B                   0x587
 
+#define IA32_APIC_BASE                      0x1B
+#define IA32_LVT_REGISTER                   0x834
+
+
+
+typedef union _PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE {
+
+    struct {
+
+        unsigned long Vector : 8;
+        unsigned long DeliveryMode : 3;
+        unsigned long Reserved0 : 1;
+        unsigned long DeliveryStatus : 1;
+        unsigned long Reserved1 : 3;
+        unsigned long Mask : 1;
+        unsigned long Raw : 15;
+
+    } Values;
+
+    unsigned long Raw;
+
+} PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE;
+
+typedef union _IA32_APIC_BASE_STRUCTURE {
+
+    struct {
+        unsigned long long Reserved0 : 8;
+        unsigned long long BSPFlag : 1;
+        unsigned long long Reserved1 : 1;
+        unsigned long long EnableX2ApicMode : 1;
+        unsigned long long ApicGlobalEnbale : 1;
+        unsigned long long ApicBase : 52;
+    } Values;
+    unsigned long long Raw;
+} IA32_APIC_BASE_STRUCTURE;
+    
 #define PT_POOL_TAG                         'PTPT'
 #define INTEL_PT_OUTPUT_TAG                 'IPTO'
 
@@ -259,24 +295,17 @@ PtValidateConfigurationRequest(
     return STATUS_SUCCESS;
 }
 
-//unsigned long long
-//PtGenerateOutputMask(
-//    INTEL_PT_OUTPUT_BUFFER* Options
-//)
-//{
-//
-//    // TODO: update this for ToPA
-//    DEBUG_STOP();
-//    IA32_RTIT_OUTPUT_MASK_STRUCTURE result;
-//
-//    // TODO: I assume the user always allocates & sends a buffer size power of 2. Is this ok? Think it trough. 
-//    // If it is should check this in the validation process else i'll surely fuck up.
-//    // Also result.Values.MaskOrTableOffset & Options->BufferBaseAddress must equal 0, if not generates runtime error... To be considered
-//    result.Values.MaskOrTableOffset = Options->BufferSize - 1;
-//    result.Values.OutputOffset = 0;
-//
-//    return result.Raw;
-//}
+BOOLEAN
+PtIsr(
+    _In_ PKINTERRUPT Interrupt,
+    _In_opt_ PVOID ServiceContext
+)
+{
+    UNREFERENCED_PARAMETER(Interrupt);
+    UNREFERENCED_PARAMETER(ServiceContext);
+    DEBUG_PRINT("Woopty doo, interrupt coming to you\n");
+    return TRUE;
+}
 
 NTSTATUS
 PtConfigureProcessorTrace(
@@ -348,7 +377,69 @@ PtConfigureProcessorTrace(
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, FilterConfiguration->OutputOptions.OutputMask.Raw);
     __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBase);
 
+    DEBUG_STOP();
 
+    IA32_APIC_BASE_STRUCTURE apicBase;
+    apicBase.Raw = __readmsr(IA32_APIC_BASE);
+
+    if (apicBase.Values.EnableX2ApicMode)
+    {
+        DEBUG_PRINT("X2 Apic mode\n");
+        PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+        IO_CONNECT_INTERRUPT_PARAMETERS ioConnectParams = { 0 };
+        unsigned long interruptVector = 0x96;
+        PKINTERRUPT interruptHandler;
+        NTSTATUS status;
+
+        lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
+
+        if (lvt.Raw != 0)
+        {
+            // Use the vector that is currently configured
+            DEBUG_PRINT("LVT alreadi configured\n");
+            interruptVector = lvt.Values.Vector;
+        }
+        else
+        {
+            // Todo: maybe I should make sure that I use an interrupt that is not in use by the OS right now
+            lvt.Values.Vector = interruptVector;
+            lvt.Values.DeliveryMode = 0;
+            lvt.Values.Mask = 0;
+        }
+
+
+        
+
+        ioConnectParams.Version = CONNECT_FULLY_SPECIFIED;
+        ioConnectParams.FullySpecified.FloatingSave = FALSE;
+        ioConnectParams.FullySpecified.ServiceContext = NULL;
+        ioConnectParams.FullySpecified.InterruptObject = &interruptHandler;
+        ioConnectParams.FullySpecified.SpinLock = NULL;
+        ioConnectParams.FullySpecified.SynchronizeIrql = DISPATCH_LEVEL + 1;
+        ioConnectParams.FullySpecified.PhysicalDeviceObject = gDriverData.DeviceObject;
+        ioConnectParams.FullySpecified.ServiceRoutine = PtIsr;
+        ioConnectParams.FullySpecified.Vector = interruptVector;
+        ioConnectParams.FullySpecified.ShareVector = TRUE;
+        ioConnectParams.FullySpecified.Irql = DISPATCH_LEVEL + 1;
+        ioConnectParams.FullySpecified.InterruptMode = LevelSensitive;
+        // Doamne ajuta
+        ioConnectParams.FullySpecified.ProcessorEnableMask = KeGetCurrentProcessorNumber();
+        ioConnectParams.FullySpecified.Group = 0;
+
+        status = IoConnectInterruptEx(
+            &ioConnectParams
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("IoConnectInterruptEx returned status %X\n", status);
+        }
+    }
+    else
+    {
+        DEBUG_PRINT("X Apic mode\n");
+        // TODO: IMplement MMIO apic setup
+    }
+   
     return STATUS_SUCCESS;
 }
 
@@ -384,7 +475,7 @@ PtoInitTopaOutput(
     TOPA_TABLE* topaTable;
     PVOID topaTablePa;
     PVOID topaTableVa;
-    //unsigned frequency = 4;
+    unsigned frequency = 4;
 
     // Allocate topa table, an interface for the actual pointer to the topa
     topaTable = (TOPA_TABLE*)ExAllocatePoolWithTag(
@@ -451,8 +542,8 @@ PtoInitTopaOutput(
             // Set the topa entry to point at the current page
             topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = ((unsigned long long)bufferPa) >> 12;
             topaTable->TopaTableBaseVa[i].Size = Size4K;
-            //if (i % frequency == 0)
-            //    topaTable->TopaTableBaseVa[i].INT = TRUE;
+            if (i % frequency == 0)
+                topaTable->TopaTableBaseVa[i].INT = TRUE;
 
         }
 

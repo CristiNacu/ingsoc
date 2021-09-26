@@ -27,7 +27,8 @@ typedef NTSTATUS (*COMM_IO_COMMAND)(
 typedef struct _DRIVER_GLOBAL_DATA {
 
     COMM_IO_COMMAND *IoCallbacks;
-    
+    PDEVICE_OBJECT DeviceObject;
+
 } DRIVER_GLOBAL_DATA;
 DRIVER_GLOBAL_DATA gDriverData;
 

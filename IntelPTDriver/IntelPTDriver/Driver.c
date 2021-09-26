@@ -136,7 +136,6 @@ DriverEntry(
         return status;
     }
     DEBUG_PRINT("WdfDriverCreate OK\n");
-
     // Create the device object
     DEBUG_STOP();
     status = InitDevice(
@@ -150,6 +149,9 @@ DriverEntry(
         return status;
     }
     DEBUG_PRINT("InitDevice OK\n");
+
+    gDriverData.DeviceObject = WdfDeviceWdmGetDeviceObject(device);
+
 
     // Initialize the communication queue
     DEBUG_STOP();
