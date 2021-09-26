@@ -150,7 +150,7 @@ DriverEntry(
     }
     DEBUG_PRINT("InitDevice OK\n");
 
-    gDriverData.DeviceObject = WdfDeviceWdmGetDeviceObject(device);
+    gDriverData.DeviceObject = device;
 
 
     // Initialize the communication queue

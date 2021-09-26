@@ -297,14 +297,15 @@ PtValidateConfigurationRequest(
 
 BOOLEAN
 PtIsr(
-    _In_ PKINTERRUPT Interrupt,
-    _In_opt_ PVOID ServiceContext
+    _In_ WDFINTERRUPT Interrupt,
+    _In_ ULONG MessageID
 )
 {
     UNREFERENCED_PARAMETER(Interrupt);
-    UNREFERENCED_PARAMETER(ServiceContext);
-    DEBUG_PRINT("Woopty doo, interrupt coming to you\n");
-    return TRUE;
+    UNREFERENCED_PARAMETER(MessageID);
+    DEBUG_STOP();
+
+    return FALSE;
 }
 
 NTSTATUS
@@ -377,69 +378,6 @@ PtConfigureProcessorTrace(
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, FilterConfiguration->OutputOptions.OutputMask.Raw);
     __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBase);
 
-    DEBUG_STOP();
-
-    IA32_APIC_BASE_STRUCTURE apicBase;
-    apicBase.Raw = __readmsr(IA32_APIC_BASE);
-
-    if (apicBase.Values.EnableX2ApicMode)
-    {
-        DEBUG_PRINT("X2 Apic mode\n");
-        PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
-        IO_CONNECT_INTERRUPT_PARAMETERS ioConnectParams = { 0 };
-        unsigned long interruptVector = 0x96;
-        PKINTERRUPT interruptHandler;
-        NTSTATUS status;
-
-        lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
-
-        if (lvt.Raw != 0)
-        {
-            // Use the vector that is currently configured
-            DEBUG_PRINT("LVT alreadi configured\n");
-            interruptVector = lvt.Values.Vector;
-        }
-        else
-        {
-            // Todo: maybe I should make sure that I use an interrupt that is not in use by the OS right now
-            lvt.Values.Vector = interruptVector;
-            lvt.Values.DeliveryMode = 0;
-            lvt.Values.Mask = 0;
-        }
-
-
-        
-
-        ioConnectParams.Version = CONNECT_FULLY_SPECIFIED;
-        ioConnectParams.FullySpecified.FloatingSave = FALSE;
-        ioConnectParams.FullySpecified.ServiceContext = NULL;
-        ioConnectParams.FullySpecified.InterruptObject = &interruptHandler;
-        ioConnectParams.FullySpecified.SpinLock = NULL;
-        ioConnectParams.FullySpecified.SynchronizeIrql = DISPATCH_LEVEL + 1;
-        ioConnectParams.FullySpecified.PhysicalDeviceObject = gDriverData.DeviceObject;
-        ioConnectParams.FullySpecified.ServiceRoutine = PtIsr;
-        ioConnectParams.FullySpecified.Vector = interruptVector;
-        ioConnectParams.FullySpecified.ShareVector = TRUE;
-        ioConnectParams.FullySpecified.Irql = DISPATCH_LEVEL + 1;
-        ioConnectParams.FullySpecified.InterruptMode = LevelSensitive;
-        // Doamne ajuta
-        ioConnectParams.FullySpecified.ProcessorEnableMask = KeGetCurrentProcessorNumber();
-        ioConnectParams.FullySpecified.Group = 0;
-
-        status = IoConnectInterruptEx(
-            &ioConnectParams
-        );
-        if (!NT_SUCCESS(status))
-        {
-            DEBUG_PRINT("IoConnectInterruptEx returned status %X\n", status);
-        }
-    }
-    else
-    {
-        DEBUG_PRINT("X Apic mode\n");
-        // TODO: IMplement MMIO apic setup
-    }
-   
     return STATUS_SUCCESS;
 }
 
@@ -756,6 +694,62 @@ PtInit(
             DEBUG_PRINT("IntelPt is in use...\n");
         }
     }
+
+
+    DEBUG_STOP();
+
+    IA32_APIC_BASE_STRUCTURE apicBase;
+    apicBase.Raw = __readmsr(IA32_APIC_BASE);
+
+    if (apicBase.Values.EnableX2ApicMode)
+    {
+        DEBUG_PRINT("X2 Apic mode\n");
+        PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+        unsigned long interruptVector = 0x96;
+
+        lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
+
+        if (lvt.Raw != 0)
+        {
+            // Use the vector that is currently configured
+            DEBUG_PRINT("LVT alreadi configured\n");
+            interruptVector = lvt.Values.Vector;
+        }
+        else
+        {
+            // Todo: maybe I should make sure that I use an interrupt that is not in use by the OS right now
+            lvt.Values.Vector = interruptVector;
+            lvt.Values.DeliveryMode = 0;
+            lvt.Values.Mask = 0;
+        }
+
+        WDFINTERRUPT intr;
+        WDF_INTERRUPT_CONFIG  interruptConfig;
+
+        WDF_INTERRUPT_CONFIG_INIT(
+            &interruptConfig,
+            PtIsr,
+            NULL
+        );
+
+        status = WdfInterruptCreate(
+            gDriverData.DeviceObject,
+            &interruptConfig,
+            WDF_NO_OBJECT_ATTRIBUTES,
+            &intr
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("IoConnectInterruptEx returned status %X\n", status);
+        }
+    }
+    else
+    {
+        DEBUG_PRINT("X Apic mode\n");
+        // TODO: IMplement MMIO apic setup
+    }
+
+
     return status;
 }
 
