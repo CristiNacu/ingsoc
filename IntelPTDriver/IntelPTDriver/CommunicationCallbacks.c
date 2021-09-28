@@ -278,12 +278,13 @@ CommandTestIptSetup
     //    return status;
     //}
 
-    PtDisableTrace();
+    //PtDisableTrace();
     //if (!NT_SUCCESS(status))
     //{
     //    return status;
     //}
 
+    DEBUG_STOP();
     for (unsigned i = 0; i < filterConfiguration.OutputOptions.TopaEntries; i++)
     {
         for (unsigned j = 0; j < PAGE_SIZE; j++)

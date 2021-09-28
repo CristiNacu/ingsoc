@@ -36,6 +36,69 @@ typedef enum CPUID_INDEX {
 #define IA32_RTIT_ADDR3_A                   0x586
 #define IA32_RTIT_ADDR3_B                   0x587
 
+#define IA32_APIC_BASE                      0x1B
+#define IA32_LVT_REGISTER                   0x834
+
+
+
+typedef union _PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE {
+
+    struct {
+
+        unsigned long Vector : 8;
+        unsigned long DeliveryMode : 3;
+        unsigned long Reserved0 : 1;
+        unsigned long DeliveryStatus : 1;
+        unsigned long Reserved1 : 3;
+        unsigned long Mask : 1;
+        unsigned long Raw : 15;
+
+    } Values;
+
+    unsigned long Raw;
+
+} PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE;
+
+typedef union _IA32_PERF_GLOBAL_STATUS_STRUCTURE {
+
+    struct {
+        unsigned long long OvfPMC0 : 1; // 0
+        unsigned long long OvfPMC1 : 1; // 1
+        unsigned long long OvfPMC2 : 1; // 2
+        unsigned long long OvfPMC3 : 1; // 3
+        unsigned long long Reserved0 : 28; // 31:4
+        unsigned long long OvfFixedCtr0 : 1; // 32
+        unsigned long long OvfFixedCtr1 : 1; // 33
+        unsigned long long OvfFixedCtr2 : 1; // 34
+        unsigned long long Reserved1 : 13; // 47:35
+        unsigned long long OvfPerfMetrics : 1; // 48
+        unsigned long long Reserved2 : 6; // 54:49
+        unsigned long long TopaPMI : 1; // 55
+        unsigned long long Reserved3 : 2; // 57:56
+        unsigned long long LbrFrz : 1; // 58
+        unsigned long long CrtFrz : 1; // 59
+        unsigned long long Asci : 1; // 60
+        unsigned long long OvfUncore : 1; // 61
+        unsigned long long OvfBuf : 1; // 62
+        unsigned long long CondChgd : 1; // 63
+    } Values;
+    unsigned long long Raw;
+
+} IA32_PERF_GLOBAL_STATUS_STRUCTURE;
+
+typedef union _IA32_APIC_BASE_STRUCTURE {
+
+    struct {
+        unsigned long long Reserved0 : 8;
+        unsigned long long BSPFlag : 1;
+        unsigned long long Reserved1 : 1;
+        unsigned long long EnableX2ApicMode : 1;
+        unsigned long long ApicGlobalEnbale : 1;
+        unsigned long long ApicBase : 52;
+    } Values;
+    unsigned long long Raw;
+} IA32_APIC_BASE_STRUCTURE;
+    
 #define PT_POOL_TAG                         'PTPT'
 #define INTEL_PT_OUTPUT_TAG                 'IPTO'
 
@@ -139,8 +202,6 @@ NTSTATUS
 PtEnableTrace(
 )
 {
-    DEBUG_STOP();
-
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
     IA32_RTIT_STATUS_STRUCTURE status;
 
@@ -167,8 +228,6 @@ NTSTATUS
 PtDisableTrace(
 )
 {
-    DEBUG_STOP();
-
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
     IA32_RTIT_STATUS_STRUCTURE status;
 
@@ -259,24 +318,39 @@ PtValidateConfigurationRequest(
     return STATUS_SUCCESS;
 }
 
-//unsigned long long
-//PtGenerateOutputMask(
-//    INTEL_PT_OUTPUT_BUFFER* Options
-//)
-//{
-//
-//    // TODO: update this for ToPA
-//    DEBUG_STOP();
-//    IA32_RTIT_OUTPUT_MASK_STRUCTURE result;
-//
-//    // TODO: I assume the user always allocates & sends a buffer size power of 2. Is this ok? Think it trough. 
-//    // If it is should check this in the validation process else i'll surely fuck up.
-//    // Also result.Values.MaskOrTableOffset & Options->BufferBaseAddress must equal 0, if not generates runtime error... To be considered
-//    result.Values.MaskOrTableOffset = Options->BufferSize - 1;
-//    result.Values.OutputOffset = 0;
-//
-//    return result.Raw;
-//}
+#define MSR_IA32_PERF_GLOBAL_STATUS		0x0000038e
+#define MSR_IA32_PERF_GLOBAL_OVF_CTRL   0x00000390
+
+VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
+{
+    UNREFERENCED_PARAMETER(pTrapFrame);
+    IA32_PERF_GLOBAL_STATUS_STRUCTURE perf;
+    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+
+    perf.Raw = __readmsr(MSR_IA32_PERF_GLOBAL_STATUS);
+    if (!perf.Values.TopaPMI)
+        return;
+
+    ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
+    ia32RtitCtlMsrShadow.Values.TraceEn = FALSE;
+
+    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
+
+
+    IA32_PERF_GLOBAL_STATUS_STRUCTURE ctlperf = {0};
+    ctlperf.Values.TopaPMI = 1;
+    __writemsr(MSR_IA32_PERF_GLOBAL_OVF_CTRL, ctlperf.Raw);
+
+    PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+    lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
+    lvt.Values.Mask = 0;
+    __writemsr(IA32_LVT_REGISTER, lvt.Raw);
+    DEBUG_PRINT(">> Received PT Interrupt\n");
+
+    return;
+}
+
+typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
 
 NTSTATUS
 PtConfigureProcessorTrace(
@@ -348,9 +422,55 @@ PtConfigureProcessorTrace(
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, FilterConfiguration->OutputOptions.OutputMask.Raw);
     __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBase);
 
+    DEBUG_STOP();
 
+    IA32_APIC_BASE_STRUCTURE apicBase;
+    apicBase.Raw = __readmsr(IA32_APIC_BASE);
+
+    if (apicBase.Values.EnableX2ApicMode)
+    {
+        DEBUG_PRINT("X2 Apic mode\n");
+        PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+        unsigned long interruptVector = 0x96;
+        NTSTATUS status;
+
+        lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
+
+        if (lvt.Raw != 0)
+        {
+            // Use the vector that is currently configured
+            DEBUG_PRINT("LVT already configured\n");
+            interruptVector = lvt.Values.Vector;
+        }
+        else
+        {
+            // Todo: maybe I should make sure that I use an interrupt that is not in use by the OS right now
+            lvt.Values.Vector = interruptVector;
+            lvt.Values.DeliveryMode = 0;
+            lvt.Values.Mask = 0;
+        }
+
+        PMIHANDLER newPmiHandler = PtPmiHandler;
+
+        status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("HalSetSystemInformation returned status %X\n", status);
+        }
+        else
+        {
+            DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
+        }
+    }
+    else
+    {
+        DEBUG_PRINT("X Apic mode\n");
+        // TODO: IMplement MMIO apic setup
+    }
+   
     return STATUS_SUCCESS;
 }
+
 
 NTSTATUS
 PtoInitTopaOutput(
@@ -384,7 +504,7 @@ PtoInitTopaOutput(
     TOPA_TABLE* topaTable;
     PVOID topaTablePa;
     PVOID topaTableVa;
-    //unsigned frequency = 4;
+    unsigned frequency = 4;
 
     // Allocate topa table, an interface for the actual pointer to the topa
     topaTable = (TOPA_TABLE*)ExAllocatePoolWithTag(
@@ -451,8 +571,8 @@ PtoInitTopaOutput(
             // Set the topa entry to point at the current page
             topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = ((unsigned long long)bufferPa) >> 12;
             topaTable->TopaTableBaseVa[i].Size = Size4K;
-            //if (i % frequency == 0)
-            //    topaTable->TopaTableBaseVa[i].INT = TRUE;
+            if (i % frequency == 0)
+                topaTable->TopaTableBaseVa[i].INT = TRUE;
 
         }
 
