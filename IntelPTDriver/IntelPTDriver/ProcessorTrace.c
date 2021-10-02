@@ -9,6 +9,8 @@ typedef enum CPUID_INDEX {
     CpuidEdx
 } CPUID_INDEX;
 
+TOPA_TABLE* gTopa;
+
 #define CPUID_INTELPT_AVAILABLE_LEAF        0x7
 #define CPUID_INTELPT_AVAILABLE_SUBLEAF     0x0
 
@@ -321,11 +323,42 @@ PtValidateConfigurationRequest(
 #define MSR_IA32_PERF_GLOBAL_STATUS		0x0000038e
 #define MSR_IA32_PERF_GLOBAL_OVF_CTRL   0x00000390
 
+VOID
+PtDpc(
+    _In_ struct _KDPC* Dpc,
+    _In_opt_ PVOID DeferredContext,
+    _In_opt_ PVOID SystemArgument1,
+    _In_opt_ PVOID SystemArgument2
+)
+{
+    UNREFERENCED_PARAMETER(Dpc);
+    UNREFERENCED_PARAMETER(DeferredContext);
+    UNREFERENCED_PARAMETER(SystemArgument1);
+    UNREFERENCED_PARAMETER(SystemArgument2);
+
+    DEBUG_STOP();
+    DEBUG_PRINT("DPC ON PROC %lld\n", (unsigned long long)SystemArgument1);
+
+    unsigned long long i = 0;
+
+    while (!gTopa->TopaTableBaseVa[i].END)
+    {
+        for (unsigned long j = 0; j < PAGE_SIZE; j++)
+        {
+            DEBUG_PRINT("%x ", ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]);
+        }
+        DEBUG_PRINT("\n");
+        i++;
+    }
+
+}
+
 VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
 {
     UNREFERENCED_PARAMETER(pTrapFrame);
     IA32_PERF_GLOBAL_STATUS_STRUCTURE perf;
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+    PKDPC pProcDpc;
 
     perf.Raw = __readmsr(MSR_IA32_PERF_GLOBAL_STATUS);
     if (!perf.Values.TopaPMI)
@@ -335,16 +368,39 @@ VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
     ia32RtitCtlMsrShadow.Values.TraceEn = FALSE;
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
-
+    DEBUG_STOP();
 
     IA32_PERF_GLOBAL_STATUS_STRUCTURE ctlperf = {0};
     ctlperf.Values.TopaPMI = 1;
     __writemsr(MSR_IA32_PERF_GLOBAL_OVF_CTRL, ctlperf.Raw);
 
-    PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+   /* PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
     lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
     lvt.Values.Mask = 0;
-    __writemsr(IA32_LVT_REGISTER, lvt.Raw);
+    __writemsr(IA32_LVT_REGISTER, lvt.Raw);*/
+    pProcDpc = (PKDPC)ExAllocatePoolWithTag(
+        NonPagedPool, 
+        sizeof(KDPC), 
+        PT_POOL_TAG
+    );
+
+    KeInitializeDpc(
+        pProcDpc,
+        PtDpc,
+        NULL
+    );
+
+    KeSetTargetProcessorDpc(
+        pProcDpc, 
+        (CCHAR)KeGetCurrentProcessorNumber()
+    );
+
+    KeInsertQueueDpc(
+        pProcDpc, 
+        (PVOID)KeGetCurrentProcessorNumber(),
+        NULL
+    );
+
     DEBUG_PRINT(">> Received PT Interrupt\n");
 
     return;
@@ -422,8 +478,6 @@ PtConfigureProcessorTrace(
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, FilterConfiguration->OutputOptions.OutputMask.Raw);
     __writemsr(IA32_RTIT_OUTPUT_BASE, FilterConfiguration->OutputOptions.OutputBase);
 
-    DEBUG_STOP();
-
     IA32_APIC_BASE_STRUCTURE apicBase;
     apicBase.Raw = __readmsr(IA32_APIC_BASE);
 
@@ -478,7 +532,7 @@ PtoInitTopaOutput(
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
-    DEBUG_STOP();
+
     if (!Options)
         return STATUS_INVALID_PARAMETER_1;
     //if (!OutputConfiguration)
@@ -504,7 +558,7 @@ PtoInitTopaOutput(
     TOPA_TABLE* topaTable;
     PVOID topaTablePa;
     PVOID topaTableVa;
-    unsigned frequency = 4;
+    unsigned frequency = 3;
 
     // Allocate topa table, an interface for the actual pointer to the topa
     topaTable = (TOPA_TABLE*)ExAllocatePoolWithTag(
@@ -572,8 +626,9 @@ PtoInitTopaOutput(
             topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = ((unsigned long long)bufferPa) >> 12;
             topaTable->TopaTableBaseVa[i].Size = Size4K;
             if (i % frequency == 0)
+            {
                 topaTable->TopaTableBaseVa[i].INT = TRUE;
-
+            }
         }
 
         // Last entry will point back to the topa table -> circular buffer
@@ -588,6 +643,8 @@ PtoInitTopaOutput(
         // Configure the trace to start at table 0 index 0 in the current ToPA
         Options->OutputMask.Raw = 0x7F;
         Options->OutputBase = (unsigned long long)topaTablePa;
+
+        gTopa = topaTable;
 
     }
     else if (Options->OutputType == PtOutputTypeToPASingleRegion)
@@ -741,8 +798,6 @@ PtInit(
 {
     NTSTATUS status = STATUS_SUCCESS;
 
-    DEBUG_STOP();
-
     if (!gPtCapabilities)
     {
         gPtCapabilities = (INTEL_PT_CAPABILITIES*)ExAllocatePoolWithTag(
@@ -807,7 +862,6 @@ PtSetup(
 )
 {
     NTSTATUS status;
-    DEBUG_STOP();
 
     status = PtValidateConfigurationRequest(
         FilterConfiguration

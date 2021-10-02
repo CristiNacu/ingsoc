@@ -122,7 +122,6 @@ DriverEntry(
 
 
     // Create the driver object
-    DEBUG_STOP();
     status = WdfDriverCreate(
         DriverObject,
         RegistryPath,
@@ -138,7 +137,6 @@ DriverEntry(
     DEBUG_PRINT("WdfDriverCreate OK\n");
 
     // Create the device object
-    DEBUG_STOP();
     status = InitDevice(
         wdfdriver,
         &DEFAULT_DEVICE_SETTINGS,
@@ -152,7 +150,6 @@ DriverEntry(
     DEBUG_PRINT("InitDevice OK\n");
 
     // Initialize the communication queue
-    DEBUG_STOP();
     DEBUG_PRINT("Device Addr %p\n", device);
 
     // Initialize communication queue. The default, parallel one.

@@ -74,7 +74,6 @@ CommIoControlCallback(
     UINT32 bytesWritten = 0;
     NTSTATUS status = STATUS_SUCCESS;
 
-    DEBUG_STOP();
     UNREFERENCED_PARAMETER(Queue);
 
     if (IoControlCode >= COMM_TYPE_MAX)
@@ -235,7 +234,7 @@ CommandTestIptSetup
     INTEL_PT_CONFIGURATION filterConfiguration = {
         .FilteringOptions = {
             .FilterCpl = {
-                .FilterKm = TRUE,
+                .FilterKm = FALSE,
                 .FilterUm = TRUE
             },
             .FilterCr3 = {
@@ -257,7 +256,7 @@ CommandTestIptSetup
             .PackteMtc = {0}
         },
         .OutputOptions = {
-            .TopaEntries = 3,
+            .TopaEntries = 70,
             .OutputType = PtOutputTypeToPA
         }
     };
@@ -284,15 +283,8 @@ CommandTestIptSetup
     //    return status;
     //}
 
-    DEBUG_STOP();
-    for (unsigned i = 0; i < filterConfiguration.OutputOptions.TopaEntries; i++)
-    {
-        for (unsigned j = 0; j < PAGE_SIZE; j++)
-        {
-            DEBUG_PRINT("%x ", ((char*)filterConfiguration.OutputOptions.TopaTable->VirtualTopaPagesAddresses[i])[j]);
-        }
-        DEBUG_PRINT("\n");
-    }
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
+    PtGetStatus(&ptStatus);
 
     return status;
 }

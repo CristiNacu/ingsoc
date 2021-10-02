@@ -51,7 +51,5 @@ InitCommQueue(
         return status;
     }
 
-    DEBUG_STOP();
-
     return status;
 }
