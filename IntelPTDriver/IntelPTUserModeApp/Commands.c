@@ -200,6 +200,16 @@ NumberOfTopaOutputEntries %lld\n",
 	return CMC_STATUS_SUCCESS;
 }
 
+DWORD 
+WINAPI 
+ThreadProc(
+	_In_ LPVOID lpParameter
+)
+{
+	UNREFERENCED_PARAMETER(lpParameter);
+	printf("Thread started!\n");
+}
+
 NTSTATUS
 CommandSetupPt(
     _In_    PVOID   InParameter,
@@ -210,11 +220,11 @@ CommandSetupPt(
 	COMMUNICATION_MESSAGE message;
 	DWORD bytesWritten;
 	OVERLAPPED* overlapped = NULL;
-	COMM_DATA_SETUP_IPT data = {0};
+	PVOID data;
 
 	message.MethodType = COMM_TYPE_SETUP_IPT;
 	message.DataIn = NULL;
-	message.DataInSize = 0;
+	message.DataInSize = sizeof(PVOID);
 	message.DataOut = &data;
 	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
@@ -234,12 +244,21 @@ CommandSetupPt(
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
 	if (result == WAIT_OBJECT_0)
 	{
-		printf_s("Message received\n");
-		//printf("Buffer Size %d\nBuffer start addr %p\n", data.BufferSize, data.BufferAddress);
-		//for (int i = 0; i < data.BufferSize; i++)
-		//{
-		//	printf("%x", ((char*)data.BufferAddress)[i]);
-		//}
+		if (bytesWritten != sizeof(PVOID))
+		{
+			return STATUS_INVALID_HANDLE;
+		}
+		DebugBreak();
+		HANDLE thread = CreateThread(
+			NULL,
+			0,
+			ThreadProc,
+			data,
+			0,
+			NULL
+		);
+		WaitForSingleObject(thread, 0);
+
 	}
 	else
 	{

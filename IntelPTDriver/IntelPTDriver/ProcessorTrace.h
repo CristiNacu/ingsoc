@@ -25,6 +25,21 @@ typedef union _IA32_RTIT_STATUS_STRUCTURE {
     unsigned long long Raw;
 } IA32_RTIT_STATUS_STRUCTURE;
 
+#pragma warning( disable : 4200 )
+typedef struct _PT_BUFFER_QUEUE_STRUCTURE {
+
+    BOOLEAN Initialized;
+    KMUTEX Mutex;
+    unsigned QueueSize;
+    unsigned QueueHead;
+    unsigned QueueTail;
+
+    PVOID *Queue;
+
+} PT_BUFFER_QUEUE_STRUCTURE;
+
+PT_BUFFER_QUEUE_STRUCTURE *gUserQueue;
+
 NTSTATUS
 PtInit(
 );
@@ -36,7 +51,8 @@ PtGetCapabilities(
 
 NTSTATUS
 PtSetup(
-    INTEL_PT_CONFIGURATION* FilterConfiguration
+    INTEL_PT_CONFIGURATION* FilterConfiguration,
+    PVOID* UserQueueVa
 );
 
 NTSTATUS

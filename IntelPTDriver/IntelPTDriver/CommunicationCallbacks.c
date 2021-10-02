@@ -220,8 +220,6 @@ CommandTestIptSetup
     UNREFERENCED_PARAMETER(InputBufferLength);
     UNREFERENCED_PARAMETER(OutputBufferLength);
     UNREFERENCED_PARAMETER(InputBuffer);
-    UNREFERENCED_PARAMETER(OutputBuffer);
-    UNREFERENCED_PARAMETER(BytesWritten);
 
     //COMM_DATA_SETUP_IPT* data = (COMM_DATA_SETUP_IPT*)OutputBuffer;
     //PVOID bufferVaKm;
@@ -263,8 +261,11 @@ CommandTestIptSetup
 
     DEBUG_STOP();
 
+    PVOID userQueueAddress;
+
     status = PtSetup(
-        &filterConfiguration
+        &filterConfiguration,
+        &userQueueAddress
     );
     if (!NT_SUCCESS(status))
     {
@@ -283,8 +284,11 @@ CommandTestIptSetup
     //    return status;
     //}
 
-    IA32_RTIT_STATUS_STRUCTURE ptStatus;
-    PtGetStatus(ptStatus);
+    if (OutputBufferLength >= sizeof(PVOID))
+    {
+        *OutputBuffer = userQueueAddress;
+        *BytesWritten = sizeof(PVOID);
+    }
 
     return status;
 }

@@ -11,7 +11,6 @@ DEFINE_GUID(
 #define SAMPLE_DEVICE_USER_NAME      L"\\Global??\\SampleComm"
 #define SAMPLE_DEVICE_OPEN_NAME      L"\\\\.\\SampleComm"
 
-
 typedef struct _COMM_DATA_TEST {
     int Magic;
 } COMM_DATA_TEST;
