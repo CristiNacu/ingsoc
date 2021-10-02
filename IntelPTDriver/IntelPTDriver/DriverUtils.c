@@ -91,16 +91,3 @@ DuFreeUserspaceMapping(
     UNREFERENCED_PARAMETER(Mdl);
     return STATUS_NOT_IMPLEMENTED;
 }
-
-NTSTATUS
-DuFreeBuffer(
-    PVOID* BufferAddress,
-    size_t BufferSizeInBytes,
-    MEMORY_CACHING_TYPE CachingType
-)
-{
-    UNREFERENCED_PARAMETER(BufferAddress);
-    UNREFERENCED_PARAMETER(BufferSizeInBytes);
-    UNREFERENCED_PARAMETER(CachingType);
-    return STATUS_NOT_IMPLEMENTED;
-}

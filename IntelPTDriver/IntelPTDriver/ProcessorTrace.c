@@ -331,14 +331,18 @@ PtUnlinkFullBuffers(
     if (bufferCount > gFrequency)
     {
         // Means we have more than one ISR issued
-        DEBUG_STOP();
+        //DEBUG_STOP();
     }
 
     unsigned crtBufferCount = Table->CurrentBufferOffset;
     unsigned crtOldVaAddressesCount = 0;
     // Unlink only our current frequency
-    for (;crtBufferCount % gFrequency != 0 || crtBufferCount == 0; crtBufferCount++)
+
+    do
     {
+        if (Table->TopaTableBaseVa[crtBufferCount].END)
+            break;
+
         PVOID newBufferVa;
         PVOID newBufferPa;
         PVOID oldBufferVa;
@@ -358,14 +362,27 @@ PtUnlinkFullBuffers(
             DEBUG_STOP();
         }
 
-        OldVaAddresses[crtOldVaAddressesCount++] = oldBufferVa;
+        OldVaAddresses[crtOldVaAddressesCount] = oldBufferVa;
 
         // Save the page virtual address so that it can be mapped in user space
         Table->VirtualTopaPagesAddresses[crtBufferCount] = newBufferVa;
         // Set the topa entry to point at the current page
         Table->TopaTableBaseVa[crtBufferCount].OutputRegionBasePhysicalAddress = ((unsigned long long)newBufferPa) >> 12;
-        Table->TopaTableBaseVa[crtBufferCount].Size = Size4K;
+        
+        crtBufferCount++;
+        crtOldVaAddressesCount++;
+    } while (
+        crtBufferCount == 0 ||
+        (!Table->TopaTableBaseVa[crtBufferCount].END &&
+            !Table->TopaTableBaseVa[crtBufferCount - 1].INT)
+        );
+
+    if (Table->TopaTableBaseVa[crtBufferCount].END)
+    {
+        //DEBUG_PRINT("Wrapped around buffer\n");
+        crtBufferCount = 0;
     }
+
     *WrittenAddresses = crtOldVaAddressesCount;
     Table->CurrentBufferOffset = crtBufferCount;
 
@@ -386,20 +403,20 @@ PtDpc(
     UNREFERENCED_PARAMETER(SystemArgument1);
     UNREFERENCED_PARAMETER(SystemArgument2);
 
-    DEBUG_STOP();
-    DEBUG_PRINT("DPC ON PROC %lld\n", (unsigned long long)SystemArgument1);
+    //DEBUG_STOP();
+    //DEBUG_PRINT("DPC ON PROC %lld\n", (unsigned long long)SystemArgument1);
 
     unsigned long long i = 0;
 
-    while (!gTopa->TopaTableBaseVa[i].END)
-    {
-        for (unsigned long j = 0; j < PAGE_SIZE && ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]; j++)
-        {
-            DEBUG_PRINT("%x ", ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]);
-        }
-        DEBUG_PRINT("\n");
-        i++;
-    }
+    //while (!gTopa->TopaTableBaseVa[i].END)
+    //{
+    //    for (unsigned long j = 0; j < PAGE_SIZE && ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]; j++)
+    //    {
+    //        DEBUG_PRINT("%x ", ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]);
+    //    }
+    //    DEBUG_PRINT("\n");
+    //    i++;
+    //}
 
     PVOID *oldVaAddresses = ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * (gFrequency + 1), PT_POOL_TAG);
     unsigned WrittenAddresses = 0;
@@ -409,12 +426,13 @@ PtDpc(
         &WrittenAddresses
     );
 
-    DEBUG_PRINT("Unlinked addresses: ");
+    //DEBUG_PRINT("Unlinked addresses: ");
     for (i = 0; i < WrittenAddresses; i++)
     {
-        DEBUG_PRINT("%p ", oldVaAddresses[i]);
+        //DEBUG_PRINT("%p ", oldVaAddresses[i]);
+        DuFreeBuffer(oldVaAddresses[i], gBufferSize, MmCached);
     }
-    DEBUG_PRINT("\n");
+    //DEBUG_PRINT("\n");
 
     PtEnableTrace();
 }
@@ -430,7 +448,7 @@ VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
         return;
 
     PtDisableTrace();
-    DEBUG_STOP();
+    //DEBUG_STOP();
 
     IA32_PERF_GLOBAL_STATUS_STRUCTURE ctlperf = {0};
     ctlperf.Values.TopaPMI = 1;
@@ -463,7 +481,7 @@ VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
         NULL
     );
 
-    DEBUG_PRINT(">> Received PT Interrupt\n");
+    //DEBUG_PRINT(">> Received PT Interrupt\n");
 
     return;
 }
@@ -697,8 +715,6 @@ PtoInitTopaOutput(
         topaTable->TopaTableBaseVa[Options->TopaEntries].END = TRUE;
         topaTable->TopaTableBaseVa[Options->TopaEntries].STOP = FALSE;
         topaTable->TopaTableBaseVa[Options->TopaEntries].INT = FALSE;
-
-
 
         Options->TopaTable = topaTable;
         // Configure the trace to start at table 0 index 0 in the current ToPA

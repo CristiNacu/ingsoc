@@ -3,6 +3,8 @@
 
 #include "DriverCommon.h"
 
+#define DuFreeBuffer(BufferVa, BufferSizeInBytes, CachingType)     MmFreeContiguousMemorySpecifyCache(BufferVa, BufferSizeInBytes, CachingType)
+
 NTSTATUS
 DuAllocateBuffer(
     size_t BufferSizeInBytes,
@@ -19,5 +21,6 @@ DuMapBufferInUserspace(
     PMDL* Mdl,
     PVOID* BufferUserAddress
 );
+
 
 #endif
