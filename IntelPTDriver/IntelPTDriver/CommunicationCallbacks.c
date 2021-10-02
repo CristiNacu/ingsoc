@@ -284,7 +284,7 @@ CommandTestIptSetup
     //}
 
     IA32_RTIT_STATUS_STRUCTURE ptStatus;
-    PtGetStatus(&ptStatus);
+    PtGetStatus(ptStatus);
 
     return status;
 }

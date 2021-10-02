@@ -26,7 +26,6 @@ TOPA_TABLE* gTopa;
 #define IA32_RTIT_OUTPUT_BASE               0x560
 #define IA32_RTIT_OUTPUT_MASK_PTRS          0x561
 #define IA32_RTIT_CTL                       0x570
-#define IA32_RTIT_STATUS                    0x571
 #define IA32_RTIT_CR3_MATCH                 0x572
 
 #define IA32_RTIT_ADDR0_A                   0x580
@@ -112,6 +111,9 @@ typedef union _IA32_APIC_BASE_STRUCTURE {
 
 INTEL_PT_CAPABILITIES   *gPtCapabilities = NULL;
 BOOLEAN                 gTraceEnabled = FALSE;
+unsigned long long      gFrequency = 3;
+unsigned long long      gBufferSize = PAGE_SIZE;
+
 
 NTSTATUS
 PtQueryCapabilities(
@@ -192,28 +194,19 @@ PtGetCapabilities(
 }
 
 NTSTATUS
-PtGetStatus(
-    IA32_RTIT_STATUS_STRUCTURE *Status
-)
-{
-    Status->Raw = __readmsr(IA32_RTIT_STATUS);
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
 PtEnableTrace(
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
-    IA32_RTIT_STATUS_STRUCTURE status;
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
 
     ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
     ia32RtitCtlMsrShadow.Values.TraceEn = TRUE;
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
-    PtGetStatus(&status);
-    if (status.Values.Error || !status.Values.TriggerEn)
+    PtGetStatus(ptStatus);
+    if (ptStatus.Values.Error || !ptStatus.Values.TriggerEn)
     {
         DEBUG_PRINT("Pt TraceEnable failed\n");
         DEBUG_STOP();
@@ -231,15 +224,15 @@ PtDisableTrace(
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
-    IA32_RTIT_STATUS_STRUCTURE status;
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
 
     ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
     ia32RtitCtlMsrShadow.Values.TraceEn = FALSE;
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 
-    PtGetStatus(&status);
-    if (status.Values.Error || status.Values.TriggerEn)
+    PtGetStatus(ptStatus);
+    if (ptStatus.Values.Error || ptStatus.Values.TriggerEn)
     {
         DEBUG_PRINT("Pt TraceDisable failed\n");
         DEBUG_STOP();
@@ -323,6 +316,63 @@ PtValidateConfigurationRequest(
 #define MSR_IA32_PERF_GLOBAL_STATUS		0x0000038e
 #define MSR_IA32_PERF_GLOBAL_OVF_CTRL   0x00000390
 
+NTSTATUS
+PtUnlinkFullBuffers(
+    TOPA_TABLE* Table,
+    PVOID OldVaAddresses[],
+    unsigned *WrittenAddresses
+)
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
+    PtGetStatus(ptStatus);
+
+    unsigned long long bufferCount = (ptStatus.Values.PacketByteCnt / gBufferSize);
+    if (bufferCount > gFrequency)
+    {
+        // Means we have more than one ISR issued
+        DEBUG_STOP();
+    }
+
+    unsigned crtBufferCount = Table->CurrentBufferOffset;
+    unsigned crtOldVaAddressesCount = 0;
+    // Unlink only our current frequency
+    for (;crtBufferCount % gFrequency != 0 || crtBufferCount == 0; crtBufferCount++)
+    {
+        PVOID newBufferVa;
+        PVOID newBufferPa;
+        PVOID oldBufferVa;
+
+        oldBufferVa = Table->VirtualTopaPagesAddresses[crtBufferCount];
+
+        status = DuAllocateBuffer(
+            (size_t)gBufferSize,
+            MmCached,
+            TRUE,
+            &newBufferVa,
+            &newBufferPa
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("DuAllocateBuffer returned error %x\n", status);
+            DEBUG_STOP();
+        }
+
+        OldVaAddresses[crtOldVaAddressesCount++] = oldBufferVa;
+
+        // Save the page virtual address so that it can be mapped in user space
+        Table->VirtualTopaPagesAddresses[crtBufferCount] = newBufferVa;
+        // Set the topa entry to point at the current page
+        Table->TopaTableBaseVa[crtBufferCount].OutputRegionBasePhysicalAddress = ((unsigned long long)newBufferPa) >> 12;
+        Table->TopaTableBaseVa[crtBufferCount].Size = Size4K;
+    }
+    *WrittenAddresses = crtOldVaAddressesCount;
+    Table->CurrentBufferOffset = crtBufferCount;
+
+    return status;
+}
+
+
 VOID
 PtDpc(
     _In_ struct _KDPC* Dpc,
@@ -343,7 +393,7 @@ PtDpc(
 
     while (!gTopa->TopaTableBaseVa[i].END)
     {
-        for (unsigned long j = 0; j < PAGE_SIZE; j++)
+        for (unsigned long j = 0; j < PAGE_SIZE && ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]; j++)
         {
             DEBUG_PRINT("%x ", ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]);
         }
@@ -351,23 +401,35 @@ PtDpc(
         i++;
     }
 
+    PVOID *oldVaAddresses = ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * (gFrequency + 1), PT_POOL_TAG);
+    unsigned WrittenAddresses = 0;
+    PtUnlinkFullBuffers(
+        gTopa,
+        oldVaAddresses,
+        &WrittenAddresses
+    );
+
+    DEBUG_PRINT("Unlinked addresses: ");
+    for (i = 0; i < WrittenAddresses; i++)
+    {
+        DEBUG_PRINT("%p ", oldVaAddresses[i]);
+    }
+    DEBUG_PRINT("\n");
+
+    PtEnableTrace();
 }
 
 VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
 {
     UNREFERENCED_PARAMETER(pTrapFrame);
     IA32_PERF_GLOBAL_STATUS_STRUCTURE perf;
-    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
     PKDPC pProcDpc;
 
     perf.Raw = __readmsr(MSR_IA32_PERF_GLOBAL_STATUS);
     if (!perf.Values.TopaPMI)
         return;
 
-    ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
-    ia32RtitCtlMsrShadow.Values.TraceEn = FALSE;
-
-    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
+    PtDisableTrace();
     DEBUG_STOP();
 
     IA32_PERF_GLOBAL_STATUS_STRUCTURE ctlperf = {0};
@@ -558,7 +620,6 @@ PtoInitTopaOutput(
     TOPA_TABLE* topaTable;
     PVOID topaTablePa;
     PVOID topaTableVa;
-    unsigned frequency = 3;
 
     // Allocate topa table, an interface for the actual pointer to the topa
     topaTable = (TOPA_TABLE*)ExAllocatePoolWithTag(
@@ -625,7 +686,7 @@ PtoInitTopaOutput(
             // Set the topa entry to point at the current page
             topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = ((unsigned long long)bufferPa) >> 12;
             topaTable->TopaTableBaseVa[i].Size = Size4K;
-            if (i % frequency == 0)
+            if (i % gFrequency == 0 && i)
             {
                 topaTable->TopaTableBaseVa[i].INT = TRUE;
             }
@@ -825,14 +886,7 @@ PtInit(
 
         IA32_RTIT_STATUS_STRUCTURE ptStatus;
 
-        status = PtGetStatus(
-            &ptStatus
-        );
-        if (!NT_SUCCESS(status))
-        {
-            DEBUG_PRINT("PtGetStatus failed sith status %X\n", status);
-            return status;
-        }
+        PtGetStatus(ptStatus);
 
         gTraceEnabled = (ptStatus.Values.TriggerEn != 0);
         if (gTraceEnabled)

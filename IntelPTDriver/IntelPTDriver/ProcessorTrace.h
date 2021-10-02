@@ -3,6 +3,10 @@
 #include "DriverCommon.h"
 #include "IntelProcessorTraceDefs.h"
 
+#define IA32_RTIT_STATUS                    0x571
+#define PtGetStatus(ia32_rtit_ctl_structure) (ia32_rtit_ctl_structure.Raw = __readmsr(IA32_RTIT_STATUS))
+
+
 // As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
 typedef union _IA32_RTIT_STATUS_STRUCTURE {
     struct {
@@ -43,10 +47,6 @@ NTSTATUS
 PtDisableTrace(
 );
 
-NTSTATUS
-PtGetStatus(
-    IA32_RTIT_STATUS_STRUCTURE* Status
-);
 
 NTSTATUS
 PtoSwapTopaBuffer(

@@ -293,6 +293,7 @@ typedef enum _INTEL_PT_OUTPUT_TYPE {
 } INTEL_PT_OUTPUT_TYPE;
 
 typedef struct _TOPA_TABLE {
+    unsigned CurrentBufferOffset;
     PVOID* VirtualTopaPagesAddresses;
     unsigned long long TopaTableBasePa;
     TOPA_ENTRY* TopaTableBaseVa;
