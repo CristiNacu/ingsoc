@@ -293,6 +293,108 @@ CommandTestIptSetup
     return status;
 }
 
+PMDL gMdlCount[100];
+unsigned gMdlIdx = 0;
+
+NTSTATUS
+CommandRetrieveBuffers(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+)
+{
+    UNREFERENCED_PARAMETER(InputBufferLength);
+    UNREFERENCED_PARAMETER(InputBuffer);
+    
+    if (OutputBufferLength != sizeof(COMM_BUFFER_ADDRESS))
+    {
+        *OutputBuffer = NULL;
+        *BytesWritten = 0;
+        return STATUS_INVALID_PARAMETER_2;
+    }
+
+    NTSTATUS status;
+    PVOID data;
+    PMDL mdl;
+    PVOID userAddress;
+
+
+    status = DuDequeueElement(
+        gQueueHead,
+        &data
+    );
+    
+    while (status == STATUS_NO_MORE_ENTRIES)
+    {
+        status = KeWaitForSingleObject(
+            gPagesAvailableEvent,
+            Executive,
+            KernelMode,
+            TRUE,
+            NULL
+        );
+        if (!NT_SUCCESS(status))
+        {
+            *OutputBuffer = NULL;
+            *BytesWritten = 0;
+            return status;
+        }
+       
+        status = DuDequeueElement(
+            gQueueHead,
+            &data
+        );
+    }
+    if (!NT_SUCCESS(status))
+    {
+        *OutputBuffer = NULL;
+        *BytesWritten = 0;
+        return status;
+    }
+
+    status = DuMapBufferInUserspace(
+        data,
+        PAGE_SIZE,
+        &mdl,
+        &userAddress
+    );
+    if (!NT_SUCCESS(status))
+    {
+        *OutputBuffer = NULL;
+        *BytesWritten = 0;
+        return status;
+    }
+
+    gMdlCount[gMdlIdx++] = mdl;
+
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferAddress = userAddress;
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->PageId = gMdlIdx;       // TODO: Generate page id, transform array into linked list
+    *BytesWritten = sizeof(COMM_BUFFER_ADDRESS);
+
+    return status;
+
+}
+
+NTSTATUS
+CommandFreeBuffer(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+)
+{
+    UNREFERENCED_PARAMETER(InputBufferLength);
+    UNREFERENCED_PARAMETER(OutputBufferLength);
+    UNREFERENCED_PARAMETER(InputBuffer);
+    UNREFERENCED_PARAMETER(OutputBuffer);
+    UNREFERENCED_PARAMETER(BytesWritten);
+    
+    return STATUS_NOT_IMPLEMENTED;
+}
+
 VOID
 CommIngonreOperation(
     _In_ WDFFILEOBJECT FileObject

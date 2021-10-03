@@ -24,6 +24,13 @@ typedef struct _COMM_DATA_SETUP_IPT {
     unsigned long long BufferSize;
 } COMM_DATA_SETUP_IPT;
 
+typedef struct _COMM_BUFFER_ADDRESS {
+
+    unsigned long long PageId;
+    PVOID BufferAddress;
+
+} COMM_BUFFER_ADDRESS;
+
 
 #define UM_TEST_MAGIC                       0x1234
 #define KM_TEST_MAGIC                       0x4321

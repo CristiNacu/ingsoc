@@ -40,7 +40,10 @@ TOPA_TABLE* gTopa;
 #define IA32_APIC_BASE                      0x1B
 #define IA32_LVT_REGISTER                   0x834
 
-
+INTEL_PT_CAPABILITIES*  gPtCapabilities = NULL;
+BOOLEAN                 gTraceEnabled = FALSE;
+unsigned long long      gFrequency = 3;
+unsigned long long      gBufferSize = PAGE_SIZE;
 
 typedef union _PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE {
 
@@ -109,10 +112,7 @@ typedef union _IA32_APIC_BASE_STRUCTURE {
 #define PT_OUTPUT_TOPA_BASE_MASK                    0xFFF
 
 
-INTEL_PT_CAPABILITIES   *gPtCapabilities = NULL;
-BOOLEAN                 gTraceEnabled = FALSE;
-unsigned long long      gFrequency = 3;
-unsigned long long      gBufferSize = PAGE_SIZE;
+
 
 
 NTSTATUS
@@ -405,8 +405,6 @@ PtDpc(
     //DEBUG_STOP();
     //DEBUG_PRINT("DPC ON PROC %lld\n", (unsigned long long)SystemArgument1);
 
-    unsigned long long i = 0;
-
     //while (!gTopa->TopaTableBaseVa[i].END)
     //{
     //    for (unsigned long j = 0; j < PAGE_SIZE && ((char*)gTopa->VirtualTopaPagesAddresses[i])[j]; j++)
@@ -434,11 +432,13 @@ PtDpc(
 
     DEBUG_PRINT("Elements queued ok\n");
     //DEBUG_PRINT("Unlinked addresses: ");
-    for (i = 0; i < WrittenAddresses; i++)
-    {
-        //DEBUG_PRINT("%p ", oldVaAddresses[i]);
-        DuFreeBuffer(oldVaAddresses[i], gBufferSize, MmCached);
-    }
+    //for (i = 0; i < WrittenAddresses; i++)
+    //{
+    //    //DEBUG_PRINT("%p ", oldVaAddresses[i]);
+    //    DuFreeBuffer(oldVaAddresses[i], gBufferSize, MmCached);
+    //}
+
+    KeSetEvent(gPagesAvailableEvent, 0, FALSE);
 
     ExFreePoolWithTag(oldVaAddresses, PT_POOL_TAG);
 
@@ -981,6 +981,12 @@ PtSetup(
     DuQueueInit(
         &gQueueHead,
         TRUE
+    );
+
+    KeInitializeEvent(
+        &gPagesAvailableEvent,
+        NotificationEvent,
+        FALSE
     );
 
     //PMDL mdl;

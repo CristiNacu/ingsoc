@@ -224,6 +224,7 @@ DuEnqueueElement(
             &((QUEUE_INTERLOCKED_HED_STRUCT*)QueueHead)->QueueLock
         );
     }
+
     return STATUS_SUCCESS;
 }
 

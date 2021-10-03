@@ -26,7 +26,9 @@ typedef union _IA32_RTIT_STATUS_STRUCTURE {
     unsigned long long Raw;
 } IA32_RTIT_STATUS_STRUCTURE;
 
-QUEUE_HEAD_STRUCTURE *gQueueHead;
+QUEUE_HEAD_STRUCTURE    *gQueueHead;
+KEVENT                  gPagesAvailableEvent;
+
 
 NTSTATUS
 PtInit(

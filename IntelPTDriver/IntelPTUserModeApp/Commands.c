@@ -208,6 +208,7 @@ ThreadProc(
 {
 	UNREFERENCED_PARAMETER(lpParameter);
 	printf("Thread started!\n");
+	return 0;
 }
 
 NTSTATUS
