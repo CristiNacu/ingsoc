@@ -417,6 +417,9 @@ PtQueueElement(
         DEBUG_STOP();
     }
 
+    if (Queue->QueueTail > Queue->QueueSize)
+        Queue->QueueTail = 0;
+
     Queue->Queue[Queue->QueueTail] = Element;
     Queue->QueueTail = Queue->QueueTail + 1;
 
@@ -488,7 +491,7 @@ PtDpc(
         WrittenAddresses,
         gUserQueue
     );
-
+    DEBUG_PRINT("Elements queued ok\n");
     //DEBUG_PRINT("Unlinked addresses: ");
     for (i = 0; i < WrittenAddresses; i++)
     {
