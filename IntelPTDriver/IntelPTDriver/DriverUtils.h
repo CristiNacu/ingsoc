@@ -22,5 +22,36 @@ DuMapBufferInUserspace(
     PVOID* BufferUserAddress
 );
 
+typedef struct _QUEUE_HEAD_STRUCTURE {
+
+    LIST_ENTRY *ListEntry;
+    BOOLEAN Interlocked;
+
+} QUEUE_HEAD_STRUCTURE;
+
+NTSTATUS
+DuQueueInit(
+    QUEUE_HEAD_STRUCTURE** QueueHead,
+    BOOLEAN Interlocked
+);
+
+NTSTATUS
+DuEnqueueElement(
+    QUEUE_HEAD_STRUCTURE* QueueHead,
+    PVOID Data
+);
+
+NTSTATUS
+DuDequeueElement(
+    QUEUE_HEAD_STRUCTURE* QueueHead,
+    PVOID* Data
+);
+
+NTSTATUS
+DuEnqueueElements(
+    QUEUE_HEAD_STRUCTURE* QueueHead,
+    unsigned NumberOfElements,
+    PVOID Elements[]
+);
 
 #endif

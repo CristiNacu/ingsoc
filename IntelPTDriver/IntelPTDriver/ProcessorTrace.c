@@ -389,66 +389,6 @@ PtUnlinkFullBuffers(
     return status;
 }
 
-
-
-NTSTATUS
-PtQueueElement(
-    PVOID Element,
-    PT_BUFFER_QUEUE_STRUCTURE *Queue
-)
-{
-    NTSTATUS status;
-
-    if (!Queue->Initialized)
-    {
-        DEBUG_STOP();
-    }
-
-    status = KeWaitForSingleObject(
-        &Queue->Mutex,
-        Executive,
-        KernelMode,
-        FALSE,
-        NULL
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("Hopa\n");
-        DEBUG_STOP();
-    }
-
-    if (Queue->QueueTail > Queue->QueueSize)
-        Queue->QueueTail = 0;
-
-    Queue->Queue[Queue->QueueTail] = Element;
-    Queue->QueueTail = Queue->QueueTail + 1;
-
-    KeReleaseMutex(
-        &Queue->Mutex,
-        FALSE
-    );
-
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-PtQueueElements(
-    PVOID QueueableElements[],
-    unsigned NumberOfElements,
-    PT_BUFFER_QUEUE_STRUCTURE *Queue
-) 
-{
-    for (unsigned i = 0; i < NumberOfElements; i++)
-    {
-        PtQueueElement(
-            QueueableElements[i],
-            Queue
-        );
-    }
-
-    return STATUS_SUCCESS;
-}
-
 VOID
 PtDpc(
     _In_ struct _KDPC* Dpc,
@@ -486,11 +426,12 @@ PtDpc(
         &WrittenAddresses
     );
 
-    PtQueueElements(
-        oldVaAddresses,
+    DuEnqueueElements(
+        gQueueHead,
         WrittenAddresses,
-        gUserQueue
+        oldVaAddresses
     );
+
     DEBUG_PRINT("Elements queued ok\n");
     //DEBUG_PRINT("Unlinked addresses: ");
     for (i = 0; i < WrittenAddresses; i++)
@@ -498,6 +439,9 @@ PtDpc(
         //DEBUG_PRINT("%p ", oldVaAddresses[i]);
         DuFreeBuffer(oldVaAddresses[i], gBufferSize, MmCached);
     }
+
+    ExFreePoolWithTag(oldVaAddresses, PT_POOL_TAG);
+
     //DEBUG_PRINT("\n");
 
     PtEnableTrace();
@@ -1033,65 +977,43 @@ PtSetup(
     {
         return status;
     }
-    unsigned queueSize = 100;
 
-    gUserQueue = ExAllocatePoolWithTag(
-        NonPagedPool,
-        sizeof(PT_BUFFER_QUEUE_STRUCTURE),
-        PT_POOL_TAG
-    );
-    if (!gUserQueue)
-    {
-        DEBUG_PRINT("Failed to initialize user queue\n");
-        DEBUG_STOP();
-    }
-
-    gUserQueue->Queue = ExAllocatePoolWithTag(
-        NonPagedPool,
-        sizeof(PVOID) * queueSize,
-        PT_POOL_TAG
+    DuQueueInit(
+        &gQueueHead,
+        TRUE
     );
 
-    KeInitializeMutex(
-        &gUserQueue->Mutex,
-        0
-    );
+    //PMDL mdl;
+    //PVOID userQueueVa;
 
-    gUserQueue->QueueSize = queueSize;
+    //status = DuMapBufferInUserspace(
+    //    gUserQueue,
+    //    sizeof(LIST_ENTRY),
+    //    &mdl,
+    //    &userQueueVa
+    //);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_PRINT("Failed to map queue to userspace\n");
+    //    DEBUG_STOP();
+    //}
+
+    //status = DuMapBufferInUserspace(
+    //    gUserQueue->Queue,
+    //    queueSize * sizeof(PVOID),
+    //    &mdl,
+    //    NULL
+    //);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_PRINT("Failed to map queue queue to userspace\n");
+    //    DEBUG_STOP();
+    //}
+
+    //*UserQueueVa = userQueueVa;
     
-    gUserQueue->QueueHead = 0;
-    gUserQueue->QueueTail = 0;
+    * UserQueueVa = NULL;
 
-    gUserQueue->Initialized = TRUE;
-
-    PMDL mdl;
-    PVOID userQueueVa;
-
-    status = DuMapBufferInUserspace(
-        gUserQueue,
-        sizeof(PT_BUFFER_QUEUE_STRUCTURE),
-        &mdl,
-        &userQueueVa
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("Failed to map queue to userspace\n");
-        DEBUG_STOP();
-    }
-
-    status = DuMapBufferInUserspace(
-        gUserQueue->Queue,
-        queueSize * sizeof(PVOID),
-        &mdl,
-        NULL
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("Failed to map queue queue to userspace\n");
-        DEBUG_STOP();
-    }
-
-    *UserQueueVa = userQueueVa;
     return status;
 
 }

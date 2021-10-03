@@ -2,6 +2,7 @@
 #define _PROCESSOR_TRACE_H_
 #include "DriverCommon.h"
 #include "IntelProcessorTraceDefs.h"
+#include "DriverUtils.h"
 
 #define IA32_RTIT_STATUS                    0x571
 #define PtGetStatus(ia32_rtit_ctl_structure) (ia32_rtit_ctl_structure.Raw = __readmsr(IA32_RTIT_STATUS))
@@ -25,20 +26,7 @@ typedef union _IA32_RTIT_STATUS_STRUCTURE {
     unsigned long long Raw;
 } IA32_RTIT_STATUS_STRUCTURE;
 
-#pragma warning( disable : 4200 )
-typedef struct _PT_BUFFER_QUEUE_STRUCTURE {
-
-    BOOLEAN Initialized;
-    KMUTEX Mutex;
-    unsigned QueueSize;
-    unsigned QueueHead;
-    unsigned QueueTail;
-
-    PVOID *Queue;
-
-} PT_BUFFER_QUEUE_STRUCTURE;
-
-PT_BUFFER_QUEUE_STRUCTURE *gUserQueue;
+QUEUE_HEAD_STRUCTURE *gQueueHead;
 
 NTSTATUS
 PtInit(
