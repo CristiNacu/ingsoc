@@ -58,7 +58,9 @@ main(
 	*/
 
 
-	PrintHelp();
-	InputCommand();
-
+	while (1==1)
+	{
+		PrintHelp();
+		InputCommand();
+	}
 }

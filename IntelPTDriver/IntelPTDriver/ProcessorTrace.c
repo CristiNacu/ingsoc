@@ -416,6 +416,7 @@ PtDpc(
     //}
 
     PVOID *oldVaAddresses = ExAllocatePoolWithTag(NonPagedPool, sizeof(PVOID) * (gFrequency + 1), PT_POOL_TAG);
+
     unsigned WrittenAddresses = 0;
    
     PtUnlinkFullBuffers(
@@ -987,6 +988,11 @@ PtSetup(
         &gPagesAvailableEvent,
         NotificationEvent,
         FALSE
+    );
+
+    KeInitializeMutex(
+        &gCommMutex,
+        0
     );
 
     //PMDL mdl;

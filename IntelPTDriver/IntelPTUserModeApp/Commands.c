@@ -200,16 +200,11 @@ NumberOfTopaOutputEntries %lld\n",
 	return CMC_STATUS_SUCCESS;
 }
 
-DWORD 
-WINAPI 
+DWORD
+WINAPI
 ThreadProc(
 	_In_ LPVOID lpParameter
-)
-{
-	UNREFERENCED_PARAMETER(lpParameter);
-	printf("Thread started!\n");
-	return 0;
-}
+);
 
 NTSTATUS
 CommandSetupPt(
@@ -249,7 +244,6 @@ CommandSetupPt(
 		{
 			return STATUS_INVALID_HANDLE;
 		}
-		DebugBreak();
 		HANDLE thread = CreateThread(
 			NULL,
 			0,
@@ -272,6 +266,140 @@ CommandSetupPt(
 	*Result = NULL;
 
 	return CMC_STATUS_SUCCESS;
+}
+
+NTSTATUS
+CommandGetBuffer(
+	unsigned long long* BufferId,
+	PVOID* Buffer
+)
+{
+	NTSTATUS status;
+	COMMUNICATION_MESSAGE message;
+	DWORD bytesWritten;
+	OVERLAPPED* overlapped = NULL;
+	COMM_BUFFER_ADDRESS data;
+
+	message.MethodType = COMM_TYPE_GET_BUFFER;
+	message.DataIn = NULL;
+	message.DataInSize = 0;
+	message.DataOut = &data;
+	message.DataOutSize = sizeof(COMM_BUFFER_ADDRESS);
+	message.BytesWritten = &bytesWritten;
+
+	status = CommunicationSendMessage(
+		&message,
+		&overlapped
+	);
+	if (!SUCCEEDED(status) || !overlapped)
+	{
+		return status;
+	}
+
+	DWORD result = WaitForSingleObject(
+		overlapped->hEvent, 
+		INFINITE
+	);
+	if (result == WAIT_OBJECT_0)
+	{
+		if (bytesWritten != sizeof(COMM_BUFFER_ADDRESS))
+		{
+			return STATUS_INVALID_HANDLE;
+		}
+
+		*Buffer = data.BufferAddress;
+		*BufferId = data.PageId;
+	}
+	else
+	{
+		printf_s("WaitForSingleObject unsuccessful\n");
+	}
+
+	if (overlapped)
+		free(overlapped);
+
+	return status;
+}
+
+
+NTSTATUS
+CommandFreeBuffer(
+	unsigned long long BufferId
+)
+{
+	NTSTATUS status;
+	COMMUNICATION_MESSAGE message;
+	DWORD bytesWritten;
+	OVERLAPPED* overlapped = NULL;
+	unsigned long long bufferId = BufferId;
+
+	message.MethodType = COMM_TYPE_GET_BUFFER;
+	message.DataIn = NULL;
+	message.DataInSize = 0;
+	message.DataOut = &bufferId;
+	message.DataOutSize = sizeof(unsigned long long);
+	message.BytesWritten = &bytesWritten;
+
+	status = CommunicationSendMessage(
+		&message,
+		&overlapped
+	);
+	if (!SUCCEEDED(status) || !overlapped)
+	{
+		return status;
+	}
+
+	DWORD result = WaitForSingleObject(
+		overlapped->hEvent,
+		INFINITE
+	);
+	if (result != WAIT_OBJECT_0)
+	{
+		printf_s("WaitForSingleObject unsuccessful\n");
+	}
+
+	if (overlapped)
+		free(overlapped);
+
+	return status;
+}
+
+DWORD
+WINAPI
+ThreadProc(
+	_In_ LPVOID lpParameter
+)
+{
+	UNREFERENCED_PARAMETER(lpParameter);
+
+	NTSTATUS status;
+	unsigned long long bufferId;
+	PVOID bufferAddr;
+	DebugBreak();
+
+	while (1 == 1)
+	{
+		status = CommandGetBuffer(
+			&bufferId,
+			&bufferAddr
+		);
+		if (!SUCCEEDED(status))
+		{
+			continue;
+		}
+
+		char* buffAsByte = (char*)bufferAddr;
+		for (int i = 0; i < USN_PAGE_SIZE; i++)
+		{
+			printf("%x", buffAsByte[i]);
+		}
+		printf("\n");
+
+		status = CommandFreeBuffer(
+			bufferId
+		);
+	}
+	return 0;
 }
 
 NTSTATUS

@@ -87,11 +87,19 @@ DuMapBufferInUserspace(
 
 NTSTATUS
 DuFreeUserspaceMapping(
-    PMDL* Mdl
+    PVOID BaseAddress,
+    PMDL Mdl
 )
 {
-    UNREFERENCED_PARAMETER(Mdl);
-    return STATUS_NOT_IMPLEMENTED;
+    MmUnmapLockedPages(
+        BaseAddress,
+        Mdl
+    );
+
+    IoFreeMdl(Mdl);
+
+
+    return STATUS_SUCCESS;
 }
 
 

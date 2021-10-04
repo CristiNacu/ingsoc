@@ -28,7 +28,7 @@ typedef union _IA32_RTIT_STATUS_STRUCTURE {
 
 QUEUE_HEAD_STRUCTURE    *gQueueHead;
 KEVENT                  gPagesAvailableEvent;
-
+KMUTEX                  gCommMutex;
 
 NTSTATUS
 PtInit(

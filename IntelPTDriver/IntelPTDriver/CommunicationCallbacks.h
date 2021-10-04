@@ -42,6 +42,24 @@ CommandTestIptSetup
     UINT32* BytesWritten
 );
 
+NTSTATUS
+CommandSendBuffers(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+);
+
+NTSTATUS
+CommandFreeBuffer(
+    size_t InputBufferLength,
+    size_t OutputBufferLength,
+    PVOID* InputBuffer,
+    PVOID* OutputBuffer,
+    UINT32* BytesWritten
+);
+
 VOID
 CommIngonreOperation(
     _In_ WDFFILEOBJECT FileObject

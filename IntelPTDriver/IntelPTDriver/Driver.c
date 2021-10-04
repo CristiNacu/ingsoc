@@ -52,8 +52,13 @@ COMM_IO_COMMAND DEFAULT_COMMAND_CALLBACKS[] = {
         CommandGetPtCapabilities,
 
     // COMM_TYPE_SETUP_IPT                  0x2
-        CommandTestIptSetup
+        CommandTestIptSetup,
 
+    // COMM_TYPE_GET_BUFFER                 0x3
+        CommandSendBuffers,
+
+    // COMM_TYPE_FREE_BUFFER                0x4
+        CommandFreeBuffer
 };
 
 

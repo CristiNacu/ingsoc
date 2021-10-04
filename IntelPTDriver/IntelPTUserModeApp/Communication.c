@@ -10,21 +10,22 @@ CommunicationGetDriverHandle(
 )
 {
 	NTSTATUS status = CMC_STATUS_SUCCESS;
-
-	gDriverHandle = CreateFileW(
-		SAMPLE_DEVICE_OPEN_NAME,
-		GENERIC_READ | GENERIC_WRITE,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		FILE_FLAG_OVERLAPPED,
-		NULL);
 	if (gDriverHandle == INVALID_HANDLE_VALUE)
 	{
-		printf_s("Could not retrieve driver handle! Error %X\n", GetLastError());
-		status = STATUS_INVALID_HANDLE;
+		gDriverHandle = CreateFileW(
+			SAMPLE_DEVICE_OPEN_NAME,
+			GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ,
+			NULL,
+			OPEN_EXISTING,
+			FILE_FLAG_OVERLAPPED,
+			NULL);
+		if (gDriverHandle == INVALID_HANDLE_VALUE)
+		{
+			printf_s("Could not retrieve driver handle! Error %X\n", GetLastError());
+			status = STATUS_INVALID_HANDLE;
+		}
 	}
-
 	*Handle = gDriverHandle;
 	return status;
 }

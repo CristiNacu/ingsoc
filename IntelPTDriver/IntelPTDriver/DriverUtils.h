@@ -3,7 +3,8 @@
 
 #include "DriverCommon.h"
 
-#define DuFreeBuffer(BufferVa, BufferSizeInBytes, CachingType)     MmFreeContiguousMemorySpecifyCache(BufferVa, BufferSizeInBytes, CachingType)
+#define DuFreeBuffer(BufferVa, BufferSizeInBytes, CachingType)      MmFreeContiguousMemorySpecifyCache(BufferVa, BufferSizeInBytes, CachingType)
+#define DuIsBufferEmpty(QueueHead)                                  IsListEmpty(QueueHead->ListEntry)
 
 NTSTATUS
 DuAllocateBuffer(
@@ -20,6 +21,12 @@ DuMapBufferInUserspace(
     size_t BufferSizeInBytes,
     PMDL* Mdl,
     PVOID* BufferUserAddress
+);
+
+NTSTATUS
+DuFreeUserspaceMapping(
+    PVOID BaseAddress,
+    PMDL Mdl
 );
 
 typedef struct _QUEUE_HEAD_STRUCTURE {

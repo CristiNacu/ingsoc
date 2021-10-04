@@ -25,20 +25,19 @@ typedef struct _COMM_DATA_SETUP_IPT {
 } COMM_DATA_SETUP_IPT;
 
 typedef struct _COMM_BUFFER_ADDRESS {
-
     unsigned long long PageId;
     PVOID BufferAddress;
-
 } COMM_BUFFER_ADDRESS;
 
 
 #define UM_TEST_MAGIC                       0x1234
 #define KM_TEST_MAGIC                       0x4321
 
-
-
 #define COMM_TYPE_TEST                      0x0
 #define COMM_TYPE_QUERY_IPT_CAPABILITIES    0x1
 #define COMM_TYPE_SETUP_IPT                 0x2
-#define COMM_TYPE_MAX                       0x3
+#define COMM_TYPE_GET_BUFFER                0x3
+#define COMM_TYPE_FREE_BUFFER               0x4
+#define COMM_TYPE_MAX                       0x5
+
 #endif

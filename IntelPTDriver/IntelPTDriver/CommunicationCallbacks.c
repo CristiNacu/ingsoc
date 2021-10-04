@@ -293,11 +293,22 @@ CommandTestIptSetup
     return status;
 }
 
-PMDL gMdlCount[100];
-unsigned gMdlIdx = 0;
+#define PT_COMM_MEM_TAG 'PCMT'
+
+typedef struct _USER_MAPPING_INTERNAL_STRUCTURE {
+
+    PVOID BaseKAddr;
+    PVOID BaseUAddr;
+    PMDL  Mdl;
+
+} USER_MAPPING_INTERNAL_STRUCTURE;
+
+#define MAX_USER_MAPPINGS 10000
+USER_MAPPING_INTERNAL_STRUCTURE* gUserBufferMappings[MAX_USER_MAPPINGS] = {0};
+unsigned long long gCurrentId = 0;
 
 NTSTATUS
-CommandRetrieveBuffers(
+CommandSendBuffers(
     size_t InputBufferLength,
     size_t OutputBufferLength,
     PVOID* InputBuffer,
@@ -307,7 +318,8 @@ CommandRetrieveBuffers(
 {
     UNREFERENCED_PARAMETER(InputBufferLength);
     UNREFERENCED_PARAMETER(InputBuffer);
-    
+    DEBUG_STOP();
+
     if (OutputBufferLength != sizeof(COMM_BUFFER_ADDRESS))
     {
         *OutputBuffer = NULL;
@@ -319,7 +331,7 @@ CommandRetrieveBuffers(
     PVOID data;
     PMDL mdl;
     PVOID userAddress;
-
+    unsigned long long crtIdx;
 
     status = DuDequeueElement(
         gQueueHead,
@@ -367,10 +379,54 @@ CommandRetrieveBuffers(
         return status;
     }
 
-    gMdlCount[gMdlIdx++] = mdl;
+    USER_MAPPING_INTERNAL_STRUCTURE* mapping = ExAllocatePoolWithTag(
+        PagedPool,
+        sizeof(USER_MAPPING_INTERNAL_STRUCTURE),
+        PT_COMM_MEM_TAG
+    );
+    if (!mapping)
+    {
+        DEBUG_PRINT("ExAllocatePoolWithTag failed\n");
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    mapping->BaseKAddr = data;
+    mapping->BaseUAddr = userAddress;
+    mapping->Mdl = mdl;
+
+    status = KeWaitForSingleObject(
+        &gCommMutex,
+        Executive,
+        KernelMode,
+        TRUE,
+        NULL
+    );
+    if (!NT_SUCCESS(status))
+    {
+        *OutputBuffer = NULL;
+        *BytesWritten = 0;
+        return status;
+    }
+    crtIdx = gCurrentId;
+    while (gUserBufferMappings[crtIdx])
+    {
+        crtIdx = (crtIdx + 1) % MAX_USER_MAPPINGS;
+        if (crtIdx == gCurrentId)
+        {
+            *OutputBuffer = NULL;
+            *BytesWritten = 0;
+            return STATUS_NO_MORE_ENTRIES;
+        }
+    }
+    gUserBufferMappings[crtIdx] = mapping;
+
+    KeReleaseMutex(
+        &gCommMutex,
+        FALSE
+    );
 
     ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferAddress = userAddress;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->PageId = gMdlIdx;       // TODO: Generate page id, transform array into linked list
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->PageId = crtIdx;       // TODO: Generate page id, transform array into linked list
     *BytesWritten = sizeof(COMM_BUFFER_ADDRESS);
 
     return status;
@@ -386,11 +442,26 @@ CommandFreeBuffer(
     UINT32* BytesWritten
 )
 {
-    UNREFERENCED_PARAMETER(InputBufferLength);
     UNREFERENCED_PARAMETER(OutputBufferLength);
-    UNREFERENCED_PARAMETER(InputBuffer);
     UNREFERENCED_PARAMETER(OutputBuffer);
     UNREFERENCED_PARAMETER(BytesWritten);
+    DEBUG_STOP();
+
+    if (InputBufferLength != sizeof(unsigned long long))
+        return STATUS_INVALID_PARAMETER_1;
+
+    unsigned long long index = *(unsigned long long*)InputBuffer;
+
+    USER_MAPPING_INTERNAL_STRUCTURE *element = gUserBufferMappings[index];
+    gUserBufferMappings[index] = NULL;
+
+    DuFreeUserspaceMapping(
+        element->BaseUAddr,
+        element->Mdl
+    );
+
+    // TODO: PAGE_SIZE should be replaced with buffer size
+    DuFreeBuffer(element->BaseKAddr, PAGE_SIZE, MmCached);
     
     return STATUS_NOT_IMPLEMENTED;
 }
