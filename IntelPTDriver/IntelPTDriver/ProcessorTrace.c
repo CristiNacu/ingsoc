@@ -438,7 +438,7 @@ PtDpc(
     //    DuFreeBuffer(oldVaAddresses[i], gBufferSize, MmCached);
     //}
 
-    KeSetEvent(gPagesAvailableEvent, 0, FALSE);
+    KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
 
     ExFreePoolWithTag(oldVaAddresses, PT_POOL_TAG);
 

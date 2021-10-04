@@ -329,7 +329,7 @@ CommandRetrieveBuffers(
     while (status == STATUS_NO_MORE_ENTRIES)
     {
         status = KeWaitForSingleObject(
-            gPagesAvailableEvent,
+            &gPagesAvailableEvent,
             Executive,
             KernelMode,
             TRUE,
