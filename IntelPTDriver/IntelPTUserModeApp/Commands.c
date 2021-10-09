@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "Public.h"
 #include "IntelProcessorTraceDefs.h"
+#include <fileapi.h>
 
 NTSTATUS
 CommandTest(
@@ -225,6 +226,8 @@ CommandSetupPt(
 	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
 
+
+
 	status = CommunicationSendMessage(
 		&message,
 		&overlapped
@@ -375,7 +378,7 @@ ThreadProc(
 	NTSTATUS status;
 	unsigned long long bufferId;
 	PVOID bufferAddr;
-
+	FILE* fileHandle;
 	while (1 == 1)
 	{
 		status = CommandGetBuffer(
@@ -387,12 +390,26 @@ ThreadProc(
 			continue;
 		}
 
+		fopen_s(
+			&fileHandle,
+			"ProcessorTrace",
+			"a"
+		);
+		if (fileHandle == INVALID_HANDLE_VALUE || !fileHandle)
+		{
+			return STATUS_ACCESS_VIOLATION;
+		}
+
+
 		char* buffAsByte = (char*)bufferAddr;
 		for (int i = 0; i < USN_PAGE_SIZE; i++)
 		{
-			printf("%x", buffAsByte[i]);
+			fprintf(fileHandle, "%x", buffAsByte[i]);
 		}
-		printf("\n");
+
+		fclose(fileHandle);
+		printf("Written bytes\n");
+
 
 		status = CommandFreeBuffer(
 			bufferId
