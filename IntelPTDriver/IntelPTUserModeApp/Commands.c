@@ -220,7 +220,7 @@ CommandSetupPt(
 
 	message.MethodType = COMM_TYPE_SETUP_IPT;
 	message.DataIn = NULL;
-	message.DataInSize = sizeof(PVOID);
+	message.DataInSize = 0;
 	message.DataOut = &data;
 	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
@@ -333,11 +333,11 @@ CommandFreeBuffer(
 	OVERLAPPED* overlapped = NULL;
 	unsigned long long bufferId = BufferId;
 
-	message.MethodType = COMM_TYPE_GET_BUFFER;
-	message.DataIn = NULL;
-	message.DataInSize = 0;
-	message.DataOut = &bufferId;
-	message.DataOutSize = sizeof(unsigned long long);
+	message.MethodType = COMM_TYPE_FREE_BUFFER;
+	message.DataIn = &bufferId;
+	message.DataInSize = sizeof(unsigned long long);
+	message.DataOut = NULL;
+	message.DataOutSize = 0;
 	message.BytesWritten = &bytesWritten;
 
 	status = CommunicationSendMessage(
@@ -375,7 +375,6 @@ ThreadProc(
 	NTSTATUS status;
 	unsigned long long bufferId;
 	PVOID bufferAddr;
-	DebugBreak();
 
 	while (1 == 1)
 	{
@@ -410,8 +409,6 @@ CommandExit(
 {
 	UNREFERENCED_PARAMETER(InParameter);
 	UNREFERENCED_PARAMETER(Result);
-
-	printf_s("HELLO WORLD\n");
 
 	return CMC_STATUS_SUCCESS;
 }

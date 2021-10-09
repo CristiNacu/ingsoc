@@ -431,7 +431,7 @@ PtDpc(
         oldVaAddresses
     );
 
-    DEBUG_PRINT("Elements queued ok\n");
+    //DEBUG_PRINT("Elements enqueued ok\n");
     //DEBUG_PRINT("Unlinked addresses: ");
     //for (i = 0; i < WrittenAddresses; i++)
     //{

@@ -211,7 +211,6 @@ DeviceEvtFileCreate(
 	UNREFERENCED_PARAMETER(Request);
 	UNREFERENCED_PARAMETER(FileObject);
 
-	DEBUG_STOP();
 	WdfRequestComplete(Request, STATUS_SUCCESS);
 
 }

@@ -3,7 +3,7 @@
 
 #include "DriverCommon.h"
 
-#define DuFreeBuffer(BufferVa, BufferSizeInBytes, CachingType)      MmFreeContiguousMemorySpecifyCache(BufferVa, BufferSizeInBytes, CachingType)
+#define DuFreeBuffer(BufferVa)                                      MmFreeContiguousMemory(BufferVa)
 #define DuIsBufferEmpty(QueueHead)                                  IsListEmpty(QueueHead->ListEntry)
 
 NTSTATUS

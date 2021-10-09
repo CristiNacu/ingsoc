@@ -30,7 +30,6 @@ CommunicationGetDriverHandle(
 	return status;
 }
 
-
 NTSTATUS 
 CommunicationSendMessage(
     _In_ COMMUNICATION_MESSAGE *Message, 

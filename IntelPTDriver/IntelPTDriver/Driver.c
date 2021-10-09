@@ -45,19 +45,19 @@ IO_QUEUE_SETTINGS DEFAULT_QUEUE_SETTINGS = {
 
 COMM_IO_COMMAND DEFAULT_COMMAND_CALLBACKS[] = {
 
-    // COMM_TYPE_TEST                       0x0
+    // COMM_TYPE_TEST
         CommandTest,
 
-    // COMM_TYPE_QUERY_IPT_CAPABILITIES     0x1
+    // COMM_TYPE_QUERY_IPT_CAPABILITIES
         CommandGetPtCapabilities,
 
-    // COMM_TYPE_SETUP_IPT                  0x2
+    // COMM_TYPE_SETUP_IPT
         CommandTestIptSetup,
 
-    // COMM_TYPE_GET_BUFFER                 0x3
+    // COMM_TYPE_GET_BUFFER
         CommandSendBuffers,
 
-    // COMM_TYPE_FREE_BUFFER                0x4
+    // COMM_TYPE_FREE_BUFFER
         CommandFreeBuffer
 };
 

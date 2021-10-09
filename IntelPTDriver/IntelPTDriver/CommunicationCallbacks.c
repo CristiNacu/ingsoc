@@ -27,7 +27,7 @@ CommGetRequestBuffers(
         );
         if (!NT_SUCCESS(status))
         {
-            DEBUG_PRINT("Failed retrieveing input buffer\n");
+            DEBUG_PRINT("Failed retrieveing input buffer, status %X\n", status);
             return status;
         }
     }
@@ -47,7 +47,7 @@ CommGetRequestBuffers(
         );
         if (!NT_SUCCESS(status))
         {
-            DEBUG_PRINT("Failed retrieveing output buffer\n");
+            DEBUG_PRINT("Failed retrieveing output buffer, status %X\n", status);
             return status;
         }
     }
@@ -76,12 +76,6 @@ CommIoControlCallback(
 
     UNREFERENCED_PARAMETER(Queue);
 
-    if (IoControlCode >= COMM_TYPE_MAX)
-    {
-        status = STATUS_INVALID_MESSAGE;
-        goto cleanup;
-    }
-    
     status = CommGetRequestBuffers(
         Request,
         InputBufferLength,
@@ -97,7 +91,24 @@ CommIoControlCallback(
         goto cleanup;
     }
 
-    status = gDriverData.IoCallbacks[IoControlCode](
+    unsigned function;
+    if (IoControlCode == COMM_TYPE_TEST)
+        function = 0;
+    else if (IoControlCode == COMM_TYPE_QUERY_IPT_CAPABILITIES)
+        function = 1;
+    else if (IoControlCode == COMM_TYPE_SETUP_IPT)
+        function = 2;
+    else if (IoControlCode == COMM_TYPE_GET_BUFFER)
+        function = 3;
+    else if (IoControlCode == COMM_TYPE_FREE_BUFFER)
+        function = 4;
+    else
+    {
+        status = STATUS_NOT_IMPLEMENTED;
+        goto cleanup;
+    }
+
+    status = gDriverData.IoCallbacks[function](
         inBufferSize,
         outBufferSize,
         inBuffer,
@@ -259,8 +270,6 @@ CommandTestIptSetup
         }
     };
 
-    DEBUG_STOP();
-
     PVOID userQueueAddress;
 
     status = PtSetup(
@@ -318,7 +327,6 @@ CommandSendBuffers(
 {
     UNREFERENCED_PARAMETER(InputBufferLength);
     UNREFERENCED_PARAMETER(InputBuffer);
-    DEBUG_STOP();
 
     if (OutputBufferLength != sizeof(COMM_BUFFER_ADDRESS))
     {
@@ -445,7 +453,6 @@ CommandFreeBuffer(
     UNREFERENCED_PARAMETER(OutputBufferLength);
     UNREFERENCED_PARAMETER(OutputBuffer);
     UNREFERENCED_PARAMETER(BytesWritten);
-    DEBUG_STOP();
 
     if (InputBufferLength != sizeof(unsigned long long))
         return STATUS_INVALID_PARAMETER_1;
@@ -461,7 +468,7 @@ CommandFreeBuffer(
     );
 
     // TODO: PAGE_SIZE should be replaced with buffer size
-    DuFreeBuffer(element->BaseKAddr, PAGE_SIZE, MmCached);
+    //DuFreeBuffer(element->BaseKAddr);
     
     return STATUS_NOT_IMPLEMENTED;
 }
