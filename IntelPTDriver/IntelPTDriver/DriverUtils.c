@@ -105,7 +105,7 @@ DuFreeUserspaceMapping(
 
 typedef struct _INTERNAL_QUEUE_WORK_ELEMENT_STRUCTURE {
 
-    LIST_ENTRY *ListEntry;
+    LIST_ENTRY ListEntry;
     PVOID Data;
 
 } INTERNAL_QUEUE_WORK_ELEMENT_STRUCTURE;
