@@ -467,8 +467,7 @@ CommandFreeBuffer(
         element->Mdl
     );
 
-    // TODO: PAGE_SIZE should be replaced with buffer size
-    //DuFreeBuffer(element->BaseKAddr);
+    DuFreeBuffer(element->BaseKAddr);
     
     return STATUS_NOT_IMPLEMENTED;
 }
