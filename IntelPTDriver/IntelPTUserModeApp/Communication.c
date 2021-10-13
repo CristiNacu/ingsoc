@@ -47,7 +47,7 @@ CommunicationSendMessage(
 		return STATUS_INTERRUPTED;
 	}
 
-	overlapped->hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	overlapped->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (overlapped->hEvent == NULL)
 	{
 		printf_s("Could not create event! Error %X\n", GetLastError());

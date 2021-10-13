@@ -171,6 +171,18 @@ DriverEntry(
     }
     DEBUG_PRINT("InitCommQueue OK\n");
 
+    KeInitializeEvent(
+        &gPagesAvailableEvent,
+        NotificationEvent,
+        FALSE
+    );
+
+    KeInitializeMutex(
+        &gCommMutex,
+        0
+    );
+
+     
     WdfControlFinishInitializing(device);
 
     PtInit();

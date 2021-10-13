@@ -127,13 +127,137 @@ cleanup:
 }
 
 
+WCHAR* ExecutableName = L"TracedApp.exe";
+HANDLE gProcessId = 0;
+
+void
+InterceptThreadCreate(
+    _In_ HANDLE ParentId,
+    _In_ HANDLE ProcessId,
+    _In_ BOOLEAN Create
+)
+{
+    UNREFERENCED_PARAMETER(ParentId);
+    NTSTATUS status;
+
+    if (gProcessId != ProcessId && ParentId != gProcessId)
+        return;
+
+    if (!Create)
+        return; // Destul de rau
+
+    unsigned long long  cr3 = __readcr3() & (~(PAGE_SIZE - 1));
+    DEBUG_PRINT("Thread CR3 %X\n", cr3);
+
+    INTEL_PT_CONFIGURATION filterConfiguration = {
+        .FilteringOptions = {
+            .FilterCpl = {
+                .FilterKm = FALSE,
+                .FilterUm = TRUE
+            },
+            .FilterCr3 = {
+                .Enable = TRUE,
+                .Cr3Address = (PVOID)cr3
+            },
+            .FilterRange = {
+                .Enable = FALSE,
+                .NumberOfRanges = 0
+            }
+        },
+        .PacketGenerationOptions = {
+            .Misc = {0},
+            .PacketCofi.Enable = TRUE,
+            .PacketCyc = {0},
+            .PacketPtw = {0},
+            .PacketPwr = {0},
+            .PacketTsc = {0},
+            .PackteMtc = {0}
+        },
+        .OutputOptions = {
+            .TopaEntries = 70,
+            .OutputType = PtOutputTypeToPA
+        }
+    };
+
+    status = PtSetup(
+        &filterConfiguration
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return;
+    }
+
+    PtEnableTrace();
+    DEBUG_PRINT("STARTED TRACING\n");
+
+    return;
+    
+}
 
 
+void
+InterceptProcessCreateOrExit(
+    _Inout_ PEPROCESS Process,
+    _In_ HANDLE ProcessId,
+    _Inout_opt_ PPS_CREATE_NOTIFY_INFO CreateInfo
+)
+{
+    UNREFERENCED_PARAMETER(Process);
+    UNREFERENCED_PARAMETER(ProcessId);
+    NTSTATUS status;
 
+    if (!CreateInfo)
+    {
+        if (!gProcessId)
+            return;
 
+        if (ProcessId != gProcessId)
+            return;
+        DEBUG_STOP();
 
+        status = PsRemoveCreateThreadNotifyRoutine(
+            InterceptThreadCreate
+        );
 
+        PtDisableTrace();
+        gProcessId = 0;
+            
+    }
+    else
+    {
+        if (!CreateInfo->ImageFileName)
+            return;
 
+        wchar_t* found = wcsstr(
+            CreateInfo->ImageFileName->Buffer,
+            ExecutableName
+        );
+
+        if (found == NULL)
+        {
+            goto cleanup;
+        }
+        DEBUG_STOP();
+        DEBUG_PRINT("%S\n", CreateInfo->ImageFileName->Buffer);
+
+        gProcessId = ProcessId;
+
+        status = PsSetCreateThreadNotifyRoutineEx(
+            PsCreateThreadNotifyNonSystem,
+            (PVOID)InterceptThreadCreate
+        );
+        if (!NT_SUCCESS(status))
+        {
+            return;
+        }
+
+        unsigned long long cr3 = __readcr3();
+        DEBUG_PRINT("With cr3: %X\n", cr3);
+    }
+
+cleanup:
+    return;
+}
 
 NTSTATUS
 CommandTest
@@ -222,6 +346,9 @@ CommandTestIptSetup
 {
     UNREFERENCED_PARAMETER(InputBuffer);
     UNREFERENCED_PARAMETER(InputBufferLength);
+    UNREFERENCED_PARAMETER(BytesWritten);
+    UNREFERENCED_PARAMETER(OutputBuffer);
+    UNREFERENCED_PARAMETER(OutputBufferLength);
 
     if (OutputBufferLength != sizeof(COMM_DATA_SETUP_IPT))
     {
@@ -240,48 +367,28 @@ CommandTestIptSetup
     NTSTATUS status;
     //PMDL mdl;
 
-    INTEL_PT_CONFIGURATION filterConfiguration = {
-        .FilteringOptions = {
-            .FilterCpl = {
-                .FilterKm = FALSE,
-                .FilterUm = TRUE
-            },
-            .FilterCr3 = {
-                .Enable = FALSE,
-                .Cr3Address = 0
-            },
-            .FilterRange = {
-                .Enable = FALSE,
-                .NumberOfRanges = 0
-            }
-        },
-        .PacketGenerationOptions = {
-            .Misc = {0},
-            .PacketCofi.Enable = TRUE,
-            .PacketCyc = {0},
-            .PacketPtw = {0},
-            .PacketPwr = {0},
-            .PacketTsc = {0},
-            .PackteMtc = {0}
-        },
-        .OutputOptions = {
-            .TopaEntries = 70,
-            .OutputType = PtOutputTypeToPA
-        }
-    };
+    //DEBUG_STOP();
 
-    PVOID userQueueAddress;
-
-    status = PtSetup(
-        &filterConfiguration,
-        &userQueueAddress
+    status = DuQueueInit(
+        &gQueueHead,
+        TRUE
     );
     if (!NT_SUCCESS(status))
     {
+        DEBUG_PRINT("DuQueueInit returned status %X\n", status);
+    }
+
+    status = PsSetCreateProcessNotifyRoutineEx(
+        InterceptProcessCreateOrExit,
+        FALSE
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("Failed to hook process creation. Status %X\n", status);
         return status;
     }
 
-    PtEnableTrace();
+
     //if (!NT_SUCCESS(status))
     //{
     //    return status;
@@ -292,12 +399,6 @@ CommandTestIptSetup
     //{
     //    return status;
     //}
-
-    if (OutputBufferLength >= sizeof(PVOID))
-    {
-        *OutputBuffer = userQueueAddress;
-        *BytesWritten = sizeof(PVOID);
-    }
 
     return status;
 }
@@ -315,6 +416,8 @@ typedef struct _USER_MAPPING_INTERNAL_STRUCTURE {
 #define MAX_USER_MAPPINGS 10000
 USER_MAPPING_INTERNAL_STRUCTURE* gUserBufferMappings[MAX_USER_MAPPINGS] = {0};
 unsigned long long gCurrentId = 0;
+BOOLEAN gFirstPageToUser = TRUE;
+BOOLEAN gFirstPageToFree = TRUE;
 
 NTSTATUS
 CommandSendBuffers(
@@ -339,8 +442,8 @@ CommandSendBuffers(
     PVOID data;
     PMDL mdl;
     PVOID userAddress;
-    unsigned long long crtIdx;
-
+    unsigned long long crtIdx;    
+    
     status = DuDequeueElement(
         gQueueHead,
         &data
@@ -348,6 +451,9 @@ CommandSendBuffers(
     
     while (status == STATUS_NO_MORE_ENTRIES)
     {
+        KeResetEvent(&gPagesAvailableEvent);
+        KIRQL irql = KeGetCurrentIrql();
+        DEBUG_PRINT("irql %d\n", irql);
         status = KeWaitForSingleObject(
             &gPagesAvailableEvent,
             Executive,
@@ -369,9 +475,16 @@ CommandSendBuffers(
     }
     if (!NT_SUCCESS(status))
     {
+        DEBUG_PRINT("DuDequeueElement returned status %X\n", status);
         *OutputBuffer = NULL;
         *BytesWritten = 0;
         return status;
+    }
+
+    if (gFirstPageToUser)
+    {
+        DEBUG_PRINT("PAGE TO USER %p\n", data);
+        gFirstPageToUser = FALSE;
     }
 
     status = DuMapBufferInUserspace(
@@ -461,6 +574,12 @@ CommandFreeBuffer(
 
     USER_MAPPING_INTERNAL_STRUCTURE *element = gUserBufferMappings[index];
     gUserBufferMappings[index] = NULL;
+
+    if (gFirstPageToUser)
+    {
+        DEBUG_PRINT("PAGE TO FREE %p\n", element->BaseKAddr);
+        gFirstPageToUser = FALSE;
+    }
 
     DuFreeUserspaceMapping(
         element->BaseUAddr,

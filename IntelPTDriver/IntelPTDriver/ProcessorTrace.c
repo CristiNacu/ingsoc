@@ -246,6 +246,31 @@ PtDisableTrace(
 }
 
 NTSTATUS
+PtPauseTrace()
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    if (gTraceEnabled)
+    {
+        status = PtDisableTrace();
+        gTraceEnabled = TRUE;
+    }
+    return status;
+
+}
+
+NTSTATUS
+PtResumeTrace()
+{
+    NTSTATUS status = STATUS_SUCCESS;
+    if (gTraceEnabled)
+    {
+        status = PtEnableTrace();
+    }
+    return status;
+
+}
+
+NTSTATUS
 PtValidateConfigurationRequest(
     INTEL_PT_CONFIGURATION* FilterConfiguration
 )
@@ -389,6 +414,8 @@ PtUnlinkFullBuffers(
     return status;
 }
 
+BOOLEAN gFirstPage = TRUE;
+
 VOID
 PtDpc(
     _In_ struct _KDPC* Dpc,
@@ -402,7 +429,6 @@ PtDpc(
     UNREFERENCED_PARAMETER(SystemArgument1);
     UNREFERENCED_PARAMETER(SystemArgument2);
 
-    //DEBUG_STOP();
     //DEBUG_PRINT("DPC ON PROC %lld\n", (unsigned long long)SystemArgument1);
 
     //while (!gTopa->TopaTableBaseVa[i].END)
@@ -425,6 +451,12 @@ PtDpc(
         &WrittenAddresses
     );
 
+    if (gFirstPage)
+    {
+        gFirstPage = FALSE;
+        DEBUG_PRINT("FIRST PAGE BUFFER VA %p\n", oldVaAddresses[0]);
+    }
+
     DuEnqueueElements(
         gQueueHead,
         WrittenAddresses,
@@ -445,7 +477,7 @@ PtDpc(
 
     //DEBUG_PRINT("\n");
 
-    PtEnableTrace();
+    PtResumeTrace();
 }
 
 VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
@@ -458,7 +490,7 @@ VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
     if (!perf.Values.TopaPMI)
         return;
 
-    PtDisableTrace();
+    PtPauseTrace();
     //DEBUG_STOP();
 
     IA32_PERF_GLOBAL_STATUS_STRUCTURE ctlperf = {0};
@@ -939,12 +971,10 @@ PtUninit(
 
 NTSTATUS 
 PtSetup(
-    INTEL_PT_CONFIGURATION* FilterConfiguration,
-    PVOID *UserQueueVa
+    INTEL_PT_CONFIGURATION* FilterConfiguration
 )
 {
     NTSTATUS status;
-
     status = PtValidateConfigurationRequest(
         FilterConfiguration
     );
@@ -979,22 +1009,6 @@ PtSetup(
         return status;
     }
 
-    DuQueueInit(
-        &gQueueHead,
-        TRUE
-    );
-
-    KeInitializeEvent(
-        &gPagesAvailableEvent,
-        NotificationEvent,
-        FALSE
-    );
-
-    KeInitializeMutex(
-        &gCommMutex,
-        0
-    );
-
     //PMDL mdl;
     //PVOID userQueueVa;
 
@@ -1024,8 +1038,6 @@ PtSetup(
 
     //*UserQueueVa = userQueueVa;
     
-    * UserQueueVa = NULL;
-
     return status;
 
 }

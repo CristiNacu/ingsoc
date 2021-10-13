@@ -226,8 +226,6 @@ CommandSetupPt(
 	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
 
-
-
 	status = CommunicationSendMessage(
 		&message,
 		&overlapped
@@ -243,10 +241,6 @@ CommandSetupPt(
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
 	if (result == WAIT_OBJECT_0)
 	{
-		if (bytesWritten != sizeof(PVOID))
-		{
-			return STATUS_INVALID_HANDLE;
-		}
 		HANDLE thread = CreateThread(
 			NULL,
 			0,
@@ -307,7 +301,8 @@ CommandGetBuffer(
 	{
 		if (bytesWritten != sizeof(COMM_BUFFER_ADDRESS))
 		{
-			return STATUS_INVALID_HANDLE;
+			status = STATUS_INVALID_HANDLE;
+			goto cleanup;
 		}
 
 		*Buffer = data.BufferAddress;
@@ -318,6 +313,7 @@ CommandGetBuffer(
 		printf_s("WaitForSingleObject unsuccessful\n");
 	}
 
+cleanup:
 	if (overlapped)
 		free(overlapped);
 
@@ -404,7 +400,7 @@ ThreadProc(
 		char* buffAsByte = (char*)bufferAddr;
 		for (int i = 0; i < USN_PAGE_SIZE; i++)
 		{
-			fprintf(fileHandle, "%x", buffAsByte[i]);
+			fprintf(fileHandle, "%c", buffAsByte[i]);
 		}
 
 		fclose(fileHandle);

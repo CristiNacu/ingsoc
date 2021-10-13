@@ -197,6 +197,9 @@ cleanup:
     return status;
 }
 
+BOOLEAN gFirstDataIn = TRUE;
+BOOLEAN gFirstDataOut = TRUE;
+
 NTSTATUS
 DuEnqueueElement(
     QUEUE_HEAD_STRUCTURE *QueueHead,
@@ -217,6 +220,15 @@ DuEnqueueElement(
     }
 
     element->Data = Data;
+
+    if (gFirstDataIn)
+    {
+        DEBUG_PRINT(
+            "FIRST ENQUEUED DATA %p\n",
+            element->Data
+        );
+        gFirstDataIn = FALSE;
+    }
 
     if (!QueueHead->Interlocked)
     {
@@ -272,6 +284,15 @@ DuDequeueElement(
         (INTERNAL_QUEUE_WORK_ELEMENT_STRUCTURE*) element;
 
     *Data = queueElement->Data;
+
+    if (gFirstDataOut)
+    {
+        DEBUG_PRINT(
+            "FIRST DEQUEUED DATA %p\n",
+            queueElement->Data
+        );
+        gFirstDataOut = FALSE;
+    }
 
     ExFreePoolWithTag(
         queueElement,

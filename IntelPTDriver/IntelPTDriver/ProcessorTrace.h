@@ -41,8 +41,7 @@ PtGetCapabilities(
 
 NTSTATUS
 PtSetup(
-    INTEL_PT_CONFIGURATION* FilterConfiguration,
-    PVOID* UserQueueVa
+    INTEL_PT_CONFIGURATION* FilterConfiguration
 );
 
 NTSTATUS
@@ -53,6 +52,13 @@ NTSTATUS
 PtDisableTrace(
 );
 
+NTSTATUS
+PtPauseTrace(
+);
+
+NTSTATUS
+PtResumeTrace(
+);
 
 NTSTATUS
 PtoSwapTopaBuffer(
