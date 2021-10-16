@@ -476,7 +476,7 @@ PtDpc(
     ExFreePoolWithTag(oldVaAddresses, PT_POOL_TAG);
 
     //DEBUG_PRINT("\n");
-
+    DEBUG_STOP();
     PtResumeTrace();
 }
 
@@ -485,6 +485,9 @@ VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
     UNREFERENCED_PARAMETER(pTrapFrame);
     IA32_PERF_GLOBAL_STATUS_STRUCTURE perf;
     PKDPC pProcDpc;
+
+    if (!gTraceEnabled)
+        return;
 
     perf.Raw = __readmsr(MSR_IA32_PERF_GLOBAL_STATUS);
     if (!perf.Values.TopaPMI)
@@ -526,7 +529,7 @@ VOID PtPmiHandler(PKTRAP_FRAME pTrapFrame)
 
     //DEBUG_PRINT(">> Received PT Interrupt\n");
 
-    return;
+    return; 
 }
 
 typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);

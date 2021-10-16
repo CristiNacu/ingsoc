@@ -229,7 +229,8 @@ InterceptProcessExit(
     return;
 }
 
-void LoadImageNotifyRoutine(
+void 
+LoadImageNotifyRoutine(
     PUNICODE_STRING FullImageName,
     HANDLE ProcessId,
     PIMAGE_INFO ImageInfo
