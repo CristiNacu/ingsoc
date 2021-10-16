@@ -146,6 +146,9 @@ InterceptThreadCreate(
     if (!Create)
         return; // Destul de rau
 
+    DEBUG_STOP();
+
+
     unsigned long long  cr3 = __readcr3() & (~(PAGE_SIZE - 1));
     DEBUG_PRINT("Thread CR3 %X\n", cr3);
 
@@ -194,65 +197,77 @@ InterceptThreadCreate(
     
 }
 
-
 void
-InterceptProcessCreateOrExit(
+InterceptProcessExit(
     _Inout_ PEPROCESS Process,
     _In_ HANDLE ProcessId,
     _Inout_opt_ PPS_CREATE_NOTIFY_INFO CreateInfo
 )
 {
     UNREFERENCED_PARAMETER(Process);
-    UNREFERENCED_PARAMETER(ProcessId);
     NTSTATUS status;
 
-    if (!CreateInfo)
+    if (CreateInfo)
+        return;
+
+    if (!gProcessId)
+        return;
+
+    if (ProcessId != gProcessId)
+        return;
+
+    DEBUG_STOP();
+
+    status = PsRemoveCreateThreadNotifyRoutine(
+        InterceptThreadCreate
+    );
+
+    PtDisableTrace();
+    gProcessId = 0;
+
+
+    return;
+}
+
+void LoadImageNotifyRoutine(
+    PUNICODE_STRING FullImageName,
+    HANDLE ProcessId,
+    PIMAGE_INFO ImageInfo
+)
+{
+    UNREFERENCED_PARAMETER(ImageInfo);
+
+    NTSTATUS status;
+    wchar_t* found = wcsstr(
+        FullImageName->Buffer,
+        ExecutableName
+    );
+
+    if (found == NULL)
     {
-        if (!gProcessId)
-            return;
-
-        if (ProcessId != gProcessId)
-            return;
-        DEBUG_STOP();
-
-        status = PsRemoveCreateThreadNotifyRoutine(
-            InterceptThreadCreate
-        );
-
-        PtDisableTrace();
-        gProcessId = 0;
-            
+        goto cleanup;
     }
-    else
+
+    DEBUG_STOP();
+    gProcessId = ProcessId;
+
+    status = PsSetCreateThreadNotifyRoutineEx(
+        PsCreateThreadNotifyNonSystem,
+        (PVOID)InterceptThreadCreate
+    );
+    if (!NT_SUCCESS(status))
     {
-        if (!CreateInfo->ImageFileName)
-            return;
+        return;
+    }
 
-        wchar_t* found = wcsstr(
-            CreateInfo->ImageFileName->Buffer,
-            ExecutableName
-        );
-
-        if (found == NULL)
-        {
-            goto cleanup;
-        }
-        DEBUG_STOP();
-        DEBUG_PRINT("%S\n", CreateInfo->ImageFileName->Buffer);
-
-        gProcessId = ProcessId;
-
-        status = PsSetCreateThreadNotifyRoutineEx(
-            PsCreateThreadNotifyNonSystem,
-            (PVOID)InterceptThreadCreate
-        );
-        if (!NT_SUCCESS(status))
-        {
-            return;
-        }
-
-        unsigned long long cr3 = __readcr3();
-        DEBUG_PRINT("With cr3: %X\n", cr3);
+    status = PsSetCreateProcessNotifyRoutineEx(
+        InterceptProcessExit,
+        FALSE
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("Failed to hook process creation. Status %X\n", status);
+        return;
     }
 
 cleanup:
@@ -378,9 +393,8 @@ CommandTestIptSetup
         DEBUG_PRINT("DuQueueInit returned status %X\n", status);
     }
 
-    status = PsSetCreateProcessNotifyRoutineEx(
-        InterceptProcessCreateOrExit,
-        FALSE
+    status = PsSetLoadImageNotifyRoutine(
+        LoadImageNotifyRoutine
     );
     if (!NT_SUCCESS(status))
     {

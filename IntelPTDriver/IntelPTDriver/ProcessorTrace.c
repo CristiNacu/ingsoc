@@ -683,22 +683,20 @@ PtoInitTopaOutput(
     PVOID topaTableVa;
 
     // Allocate topa table, an interface for the actual pointer to the topa
-    topaTable = (TOPA_TABLE*)ExAllocatePoolWithTag(
-        NonPagedPool,
-        sizeof(TOPA_TABLE),
-        INTEL_PT_OUTPUT_TAG
+    status = DuAllocateBuffer(
+        sizeof(TOPA_TABLE) + (Options->TopaEntries + 1) * sizeof(PVOID),
+        MmCached,
+        TRUE,
+        &topaTable,
+        NULL
     );
-    if (!topaTable)
+    if (!NT_SUCCESS(status) || !topaTable)
     {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    // Allocate the topa virtual address pages array
-    topaTable->VirtualTopaPagesAddresses = (PVOID *)ExAllocatePoolWithTag(
-        NonPagedPool,
-        (Options->TopaEntries + 1) * sizeof(PVOID),
-        INTEL_PT_OUTPUT_TAG
-    );
+    topaTable->VirtualTopaPagesAddresses = 
+        (PVOID *)((unsigned long long)topaTable + sizeof(TOPA_TABLE));
 
     // Allocate the actual topa
     status = DuAllocateBuffer(
@@ -708,7 +706,7 @@ PtoInitTopaOutput(
         &topaTableVa,
         &topaTablePa
     );
-    if (!NT_SUCCESS(status) || !topaTable)
+    if (!NT_SUCCESS(status) || !topaTableVa || !topaTablePa)
     {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
