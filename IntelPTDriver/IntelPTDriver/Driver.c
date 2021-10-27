@@ -111,6 +111,8 @@ DriverEntry(
     WDF_DRIVER_CONFIG_INIT(&config, DeviceAdd);
     WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
 
+    DEBUG_STOP();
+    
     config.EvtDriverUnload = DriverUnload;
     
     // Set Driver constants

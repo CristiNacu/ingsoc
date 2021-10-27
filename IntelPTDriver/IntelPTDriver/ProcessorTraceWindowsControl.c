@@ -7,9 +7,19 @@
 #define PRIVATE
 #define PTW_POOL_TAG                         'PTWP'
 
-KIPI_BROADCAST_WORKER PtwIpiPerCoreInit;
-KIPI_BROADCAST_WORKER PtwIpiPerCoreSetup;
-KIPI_BROADCAST_WORKER PtwIpcPerCoreDisable;
+typedef void (GENERIC_PER_CORE_SYNC_ROUTINE)(
+    PVOID _In_ Context
+);
+
+typedef struct _PER_CORE_SYNC_STRUCTURE {
+    volatile SHORT Counter;
+    PVOID Context;
+    GENERIC_PER_CORE_SYNC_ROUTINE *Function;
+} PER_CORE_SYNC_STRUCTURE;
+
+GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreInit;
+GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreSetup;
+GENERIC_PER_CORE_SYNC_ROUTINE PtwIpcPerCoreDisable;
 
 void IptPageAllocation(
     unsigned Size,
@@ -29,26 +39,43 @@ typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
 BOOLEAN gFirstPage = TRUE;
 WCHAR* ExecutableName = L"TracedApp.exe";
 HANDLE gProcessId = 0;
-volatile long gExecutedCoreCount = 0;
+
+ULONG_PTR
+PerCoreDispatcherRoutine(
+    _In_ ULONG_PTR Argument
+)
+{
+    PER_CORE_SYNC_STRUCTURE* syncStructure = (PER_CORE_SYNC_STRUCTURE*)Argument;
+
+    ULONG procNumber = KeGetCurrentProcessorNumber();
+    DEBUG_PRINT("Executig method on CPU %X\n", procNumber);
+
+    syncStructure->Function(syncStructure->Context);
+    InterlockedIncrement16(&syncStructure->Counter);
+    return 0;
+}
 
 PRIVATE
 NTSTATUS
 PtwExecuteAndWaitPerCore(
-    KIPI_BROADCAST_WORKER PtwBroadcastRoutine,
+    GENERIC_PER_CORE_SYNC_ROUTINE* PtwPerCoreRoutine,
     PVOID Context
 )
 {
     //PKDPC pProcDpc;
     LONG numberOfCores = (LONG)KeQueryActiveProcessorCount(NULL);
 
+    PER_CORE_SYNC_STRUCTURE syncStructure = {
+        .Counter = 0,
+        .Context = Context,
+        .Function = PtwPerCoreRoutine
+    };
+
     // TODO: Is sending an IPI a good implementation????
-    KeIpiGenericCall(PtwBroadcastRoutine, (ULONG_PTR)Context);
+    KeIpiGenericCall(PerCoreDispatcherRoutine, (ULONG_PTR)&syncStructure);
 
     // TODO: Shoud i force an interrupt on all cores to process the DPC queues?
-
-    while (gExecutedCoreCount != numberOfCores);
-
-    gExecutedCoreCount = 0;
+    while (syncStructure.Counter != numberOfCores);
 
     return STATUS_SUCCESS;
 }
@@ -62,7 +89,11 @@ PtwInit()
         IptPageAllocation
     );
 
-    return PtwExecuteAndWaitPerCore(PtwIpiPerCoreInit, NULL);
+    status = PtwExecuteAndWaitPerCore(PtwIpiPerCoreInit, NULL);
+
+    DEBUG_STOP();
+
+    return status;
 }
 
 PUBLIC
@@ -375,16 +406,22 @@ IptPmiHandler(
 
 // Ipi routines:
 PRIVATE
-ULONG_PTR
+void
 PtwIpiPerCoreInit(
-    _In_ ULONG_PTR Argument
+    _In_ PVOID Context
 )
 {
-    UNREFERENCED_PARAMETER(Argument);
+    UNREFERENCED_PARAMETER(Context);
     
     INTEL_PT_CONTROL_STRUCTURE IptControlStructure;
     NTSTATUS status;
-    
+
+    ULONG procnumber = KeGetCurrentProcessorNumber();
+    ULONG procidx = KeGetCurrentProcessorNumber();
+
+    UNREFERENCED_PARAMETER(procidx);
+    UNREFERENCED_PARAMETER(procnumber);
+
     status = IptInitPerCore(
         &IptControlStructure
     );
@@ -393,11 +430,12 @@ PtwIpiPerCoreInit(
         DEBUG_PRINT("IptInitPerCore %X\n", status);
     }
 
-    return 0;
+    return;
 }
 
 PRIVATE
-void IptPageAllocation(
+void 
+IptPageAllocation(
     unsigned Size,
     unsigned Alignment,
     void* VirtualAddress,
@@ -418,7 +456,7 @@ void IptPageAllocation(
     {
         DEBUG_PRINT("DuAllocateBuffer returned status %X\n", status);
     }
-
+    return;
 }
 
 void
@@ -435,12 +473,12 @@ IptPageFree(
 
 
 PRIVATE
-ULONG_PTR
+void
 PtwIpiPerCoreSetup(
-    _In_ ULONG_PTR Argument
+    _In_ PVOID Context
 )
 {
-    INTEL_PT_CONFIGURATION* config = (INTEL_PT_CONFIGURATION*)Argument;
+    INTEL_PT_CONFIGURATION* config = (INTEL_PT_CONFIGURATION*)Context;
     //INTEL_PT_CONTROL_STRUCTURE controlStructure;
     NTSTATUS status;
 
@@ -456,19 +494,16 @@ PtwIpiPerCoreSetup(
     }
 
     IptEnableTrace();
-
-    InterlockedIncrement(&gExecutedCoreCount);
-    return 0;
+    return;
 }
 
 PRIVATE
-ULONG_PTR
+void
 PtwIpcPerCoreDisable(
-    _In_ ULONG_PTR Argument
+    _In_ PVOID Context
 )
 {
-    UNREFERENCED_PARAMETER(Argument);
+    UNREFERENCED_PARAMETER(Context);
     IptDisableTrace();
-    InterlockedIncrement(&gExecutedCoreCount);
-    return 0;
+    return;
 }
