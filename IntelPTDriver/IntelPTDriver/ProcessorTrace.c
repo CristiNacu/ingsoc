@@ -694,7 +694,7 @@ IptInitPerCore(
     {
         DEBUG_PRINT("IntelPt is in use...\n");
     }
-    
+
     // TODO: How shold i handle the case where IPT is already enabled?
     return STATUS_SUCCESS;
 }
@@ -762,7 +762,8 @@ IptSetup(
     UNREFERENCED_PARAMETER(ControlStructure);
 
     NTSTATUS status;
-    INTEL_PT_OUTPUT_OPTIONS outputOptions;
+    INTEL_PT_OUTPUT_OPTIONS *outputOptions;
+    
     status = IptValidateConfigurationRequest(
         FilterConfiguration
     );
@@ -771,15 +772,24 @@ IptSetup(
         return status;
     }
 
+    gMemoryAllocation(
+        sizeof(INTEL_PT_OUTPUT_OPTIONS),
+        0,
+        &outputOptions,
+        NULL
+    );
+    if (!outputOptions)
+        return STATUS_INSUFFICIENT_RESOURCES;
+
     status = IptInitOutputStructure(
-        &outputOptions
+        outputOptions
     );
     if (!NT_SUCCESS(status))
     {
         return status;
     }
 
-    if (gTraceEnabled)
+    if (ControlStructure->IptEnabled)
     {
         status = IptDisableTrace();
         if (!NT_SUCCESS(status))
@@ -791,13 +801,15 @@ IptSetup(
 
     status = IptConfigureProcessorTrace(
         FilterConfiguration,
-        &outputOptions
+        outputOptions
     );
     if (!NT_SUCCESS(status))
     {
         return status;
     }
     
+    ControlStructure->IptHandler = (PVOID)outputOptions;
+
     return status;
 
 }

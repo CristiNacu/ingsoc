@@ -38,7 +38,6 @@ typedef struct _DRIVER_GLOBAL_DATA {
 
     COMM_IO_COMMAND *IoCallbacks;
 
-    INTEL_PT_CONTROL_STRUCTURE IptPerCoreControl[10];
 } DRIVER_GLOBAL_DATA;
 DRIVER_GLOBAL_DATA gDriverData;
 

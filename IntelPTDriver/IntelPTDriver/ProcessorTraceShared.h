@@ -194,7 +194,8 @@ typedef struct _INTEL_PT_CAPABILITIES {
 
 typedef struct _INTEL_PT_CONTROL_STRUCTURE {
 
-    BOOLEAN IptEnabled;
+    BOOLEAN         IptEnabled;
+    PVOID           IptHandler;
 
 } INTEL_PT_CONTROL_STRUCTURE;
 

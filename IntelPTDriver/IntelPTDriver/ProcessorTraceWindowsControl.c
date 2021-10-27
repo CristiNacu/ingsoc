@@ -21,7 +21,8 @@ GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreInit;
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreSetup;
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpcPerCoreDisable;
 
-void IptPageAllocation(
+void 
+IptPageAllocation(
     unsigned Size,
     unsigned Alignment,
     void* VirtualAddress,
@@ -39,6 +40,8 @@ typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
 BOOLEAN gFirstPage = TRUE;
 WCHAR* ExecutableName = L"TracedApp.exe";
 HANDLE gProcessId = 0;
+INTEL_PT_CONTROL_STRUCTURE* gIptPerCoreControl;
+
 
 ULONG_PTR
 PerCoreDispatcherRoutine(
@@ -48,7 +51,7 @@ PerCoreDispatcherRoutine(
     PER_CORE_SYNC_STRUCTURE* syncStructure = (PER_CORE_SYNC_STRUCTURE*)Argument;
 
     ULONG procNumber = KeGetCurrentProcessorNumber();
-    DEBUG_PRINT("Executig method on CPU %X\n", procNumber);
+    DEBUG_PRINT("Executig method on CPU %d\n", procNumber);
 
     syncStructure->Function(syncStructure->Context);
     InterlockedIncrement16(&syncStructure->Counter);
@@ -85,11 +88,29 @@ NTSTATUS
 PtwInit()
 {
     NTSTATUS status;
+    
+    
+    gIptPerCoreControl = ExAllocatePoolWithTag(
+        NonPagedPool, 
+        ((unsigned long)KeQueryActiveProcessorCount(NULL)) * sizeof(INTEL_PT_CONTROL_STRUCTURE), 
+        PTW_POOL_TAG
+    );
+    if (!gIptPerCoreControl)
+        return STATUS_INSUFFICIENT_RESOURCES;
+
     status = IptInit(
         IptPageAllocation
     );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
 
     status = PtwExecuteAndWaitPerCore(PtwIpiPerCoreInit, NULL);
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
 
     DEBUG_STOP();
 
@@ -413,17 +434,11 @@ PtwIpiPerCoreInit(
 {
     UNREFERENCED_PARAMETER(Context);
     
-    INTEL_PT_CONTROL_STRUCTURE IptControlStructure;
     NTSTATUS status;
-
     ULONG procnumber = KeGetCurrentProcessorNumber();
-    ULONG procidx = KeGetCurrentProcessorNumber();
-
-    UNREFERENCED_PARAMETER(procidx);
-    UNREFERENCED_PARAMETER(procnumber);
 
     status = IptInitPerCore(
-        &IptControlStructure
+        &gIptPerCoreControl[procnumber]
     );
     if (!NT_SUCCESS(status))
     {
@@ -482,11 +497,11 @@ PtwIpiPerCoreSetup(
     //INTEL_PT_CONTROL_STRUCTURE controlStructure;
     NTSTATUS status;
 
-    ULONG currentProcessorNumber = KeGetCurrentProcessorNumberEx(NULL);
+    ULONG currentProcessorNumber = KeGetCurrentProcessorNumber();
 
     status = IptSetup(
         config,
-        &gDriverData.IptPerCoreControl[currentProcessorNumber]
+        &gIptPerCoreControl[currentProcessorNumber]
     );
     if (!NT_SUCCESS(status))
     {

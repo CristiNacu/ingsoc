@@ -75,7 +75,7 @@ PtwCommandTraceProcess(
     UNREFERENCED_PARAMETER(OutputBufferLength);
 
     NTSTATUS status;
-
+    DEBUG_STOP();
     status = PtwHookProcess();
 
     return status;

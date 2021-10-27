@@ -72,7 +72,6 @@ PtwCommunicationIoControlCallback(
     size_t inBufferSize, outBufferSize;
     UINT32 bytesWritten = 0;
     NTSTATUS status = STATUS_SUCCESS;
-
     UNREFERENCED_PARAMETER(Queue);
 
     status = PtwCommunicationGetRequestBuffers(

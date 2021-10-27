@@ -239,28 +239,28 @@ CommandSetupPt(
 	}
 
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
-	if (result == WAIT_OBJECT_0)
-	{
-		HANDLE thread = CreateThread(
-			NULL,
-			0,
-			ThreadProc,
-			data,
-			0,
-			NULL
-		);
-		WaitForSingleObject(thread, 0);
+	//if (result == WAIT_OBJECT_0)
+	//{
+	//	HANDLE thread = CreateThread(
+	//		NULL,
+	//		0,
+	//		ThreadProc,
+	//		data,
+	//		0,
+	//		NULL
+	//	);
+	//	WaitForSingleObject(thread, 0);
 
-	}
-	else
-	{
-		printf_s("DeviceIoControl unsuccessful\n");
-	}
+	//}
+	//else
+	//{
+	//	printf_s("DeviceIoControl unsuccessful\n");
+	//}
 
-	if (overlapped)
-		free(overlapped);
+	//if (overlapped)
+	//	free(overlapped);
 
-	*Result = NULL;
+	//*Result = NULL;
 
 	return CMC_STATUS_SUCCESS;
 }

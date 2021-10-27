@@ -54,7 +54,7 @@ COMM_IO_COMMAND DEFAULT_COMMAND_CALLBACKS[] = {
         PtwCommandQueryCapabilities,
 
     // COMM_TYPE_SETUP_IPT
-        PtwCommandSetupIpt,
+        PtwCommandTraceProcess,
 
     // COMM_TYPE_GET_BUFFER
         PtwCommandGetBuffer,
