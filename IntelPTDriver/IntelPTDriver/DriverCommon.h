@@ -5,8 +5,12 @@
 #include <wdf.h>
 #include <wdfobject.h>
 #include <intrin.h>
+#include "DriverUtils.h"
+
 #include "Public.h"
 #include "Debug.h"
+#include "ProcessorTraceShared.h"
+
 
 typedef struct _COMM_QUEUE_DEVICE_CONTEXT {
     PVOID            Data;
@@ -23,13 +27,22 @@ typedef NTSTATUS (*COMM_IO_COMMAND)(
         UINT32 *bytesWritten
     );
 
+typedef struct _PER_CPU_DATA_STRUCTURE {
+
+    unsigned CpuId;
+
+} PER_CPU_DATA_STRUCTURE;
+
 // TODO: Add driver relevant data here
 typedef struct _DRIVER_GLOBAL_DATA {
 
     COMM_IO_COMMAND *IoCallbacks;
-    
+
+    INTEL_PT_CONTROL_STRUCTURE IptPerCoreControl[10];
 } DRIVER_GLOBAL_DATA;
 DRIVER_GLOBAL_DATA gDriverData;
+
+
 
 WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(COMM_QUEUE_DEVICE_CONTEXT, CommGetContextFromDevice);
 

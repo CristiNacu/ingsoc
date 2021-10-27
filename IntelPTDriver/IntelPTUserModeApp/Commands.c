@@ -2,7 +2,7 @@
 #include "Communication.h"
 #include <stdio.h>
 #include "Public.h"
-#include "IntelProcessorTraceDefs.h"
+#include "ProcessorTraceShared.h"
 #include <fileapi.h>
 
 NTSTATUS

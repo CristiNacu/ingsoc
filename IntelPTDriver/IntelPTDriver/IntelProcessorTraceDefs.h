@@ -1,221 +1,6 @@
 #ifndef _INTEL_PROCESSOR_TRACE_DEFS_H_
 #define _INTEL_PROCESSOR_TRACE_DEFS_H_
 
-
-/// Subleaf 0
-typedef struct _CPUID_LEAF_14_SUBLEAF_0_EAX
-{
-    unsigned int MaximumValidSubleaf;                               // 31:0
-} CPUID_LEAF_14_SUBLEAF_0_EAX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_0_EBX
-{
-    unsigned int Cr3FilteringSupport : 1;                           // 0
-    unsigned int ConfigurablePsbAndCycleAccurateModeSupport : 1;    // 1
-    unsigned int IpFilteringAndTraceStopSupport : 1;                // 2
-    unsigned int MtcSupport : 1;                                    // 3
-    unsigned int PtwriteSupport : 1;                                // 4
-    unsigned int PowerEventTraceSupport : 1;                        // 5
-    unsigned int PsbAndPmiPreservationSupport : 1;                  // 6
-    unsigned int Reserved : 25;                                     // 31:7
-} CPUID_LEAF_14_SUBLEAF_0_EBX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_0_ECX
-{
-    unsigned int TopaOutputSupport : 1;                             // 0
-    unsigned int TopaMultipleOutputEntriesSupport : 1;              // 1
-    unsigned int SingleRangeOutputSupport : 1;                      // 2
-    unsigned int OutputToTraceTransportSubsystemSupport : 1;        // 3
-    unsigned int Reserved : 27;                                     // 30:4
-    unsigned int IpPayloadsAreLip : 1;                              // 31
-} CPUID_LEAF_14_SUBLEAF_0_ECX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_0_EDX
-{
-    unsigned int Reserved;                                          // 31:0
-} CPUID_LEAF_14_SUBLEAF_0_EDX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_0
-{
-    CPUID_LEAF_14_SUBLEAF_0_EAX Eax;
-    CPUID_LEAF_14_SUBLEAF_0_EBX Ebx;
-    CPUID_LEAF_14_SUBLEAF_0_ECX Ecx;
-    CPUID_LEAF_14_SUBLEAF_0_EDX Edx;
-} CPUID_LEAF_14_SUBLEAF_0;
-
-//ASSERT(sizeof(int[4]) == sizeof(CPUID_LEAF_14_SUBLEAF_0));
-
-
-///  Subleaf 1
-typedef struct _CPUID_LEAF_14_SUBLEAF_1_EAX
-{
-    unsigned int NumberOfAddressRanges : 3;                                 // 2:0
-    unsigned int Reserved : 13;                                             // 15:3    
-    unsigned int BitmapOfSupportedMtcPeriodEncodings : 16;                  // 31:16
-} CPUID_LEAF_14_SUBLEAF_1_EAX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_1_EBX
-{
-    unsigned int BitmapOfSupportedCycleTresholdValues : 16;                 // 15:0
-    unsigned int BitmapOfSupportedConfigurablePsbFrequencyEncoding : 16;    // 31:16
-} CPUID_LEAF_14_SUBLEAF_1_EBX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_1_ECX
-{
-    unsigned int Reserved;                                                  // 31:0
-} CPUID_LEAF_14_SUBLEAF_1_ECX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_1_EDX
-{
-    unsigned int Reserved;                                                  // 31:0
-} CPUID_LEAF_14_SUBLEAF_1_EDX;
-
-typedef struct _CPUID_LEAF_14_SUBLEAF_1
-{
-    CPUID_LEAF_14_SUBLEAF_1_EAX Eax;
-    CPUID_LEAF_14_SUBLEAF_1_EBX Ebx;
-    CPUID_LEAF_14_SUBLEAF_1_ECX Ecx;
-    CPUID_LEAF_14_SUBLEAF_1_EDX Edx;
-} CPUID_LEAF_14_SUBLEAF_1;
-
-//ASSERT(sizeof(int[4]) == sizeof(CPUID_LEAF_14_SUBLEAF_1));
-
-
-typedef struct _INTEL_PT_CAPABILITIES
-{
-    unsigned short IntelPtAvailable;
-    CPUID_LEAF_14_SUBLEAF_0 IptCapabilities0;
-    CPUID_LEAF_14_SUBLEAF_1 IptCapabilities1;
-    unsigned long long    TopaOutputEntries;
-
-} INTEL_PT_CAPABILITIES;
-
-
-////////////////////////////////////////////////////// Filtering options
-// Range filtering
-typedef enum _INTEL_PT_RANGE_TYPE {
-
-    RangeUnused,
-    RangeFilterEn,
-    RangeTraceStop,
-    RangeMax
-
-} INTEL_PT_RANGE_TYPE;
-
-typedef struct _INTEL_PT_RANGE_OPTIONS {
-    void* BaseAddress;
-    void* EndAddress;
-    INTEL_PT_RANGE_TYPE RangeType;
-} INTEL_PT_RANGE_OPTIONS;
-
-typedef struct _INTEL_PT_FILTERING_RANGE {
-    unsigned short Enable;
-    unsigned short NumberOfRanges;              // Will be checked to be <= CPUID_LEAF_14_SUBLEAF_1_EAX.NumberOfAddressRanges. 
-    INTEL_PT_RANGE_OPTIONS RangeOptions[4];     // At most 4 address ranges are supported by any processor in production according to Intel
-} INTEL_PT_FILTERING_RANGE;
-
-// Cr3 filtering
-typedef struct _INTEL_PT_FILTERING_CR3 {
-    unsigned short Enable;
-    void* Cr3Address;
-} INTEL_PT_FILTERING_CR3;
-
-// Cpl filtering
-typedef struct _INTEL_PT_FILTERING_CPL {
-    unsigned short FilterUm;
-    unsigned short FilterKm;
-} INTEL_PT_FILTERING_CPL;
-
-// Aggregate all the filtering option structures
-typedef struct _INTEL_PT_FILTERING_OPTIONS {
-    INTEL_PT_FILTERING_CR3 FilterCr3;
-    INTEL_PT_FILTERING_CPL FilterCpl;
-    INTEL_PT_FILTERING_RANGE FilterRange;
-} INTEL_PT_FILTERING_OPTIONS;
-
-////////////////////////////////////////////////////// Packet generation
-// CYC
-typedef enum _INTEL_PT_PACKET_CYC_FREQUENCY {
-    Freq0, Freq1, Freq2, Freq4,
-    Freq8, Freq16, Freq32, Freq64,
-    Freq128, Freq256, Freq512, Freq1024,
-    Freq2048, Freq4096, Freq8192, Freq16384
-} INTEL_PT_PACKET_CYC_FREQUENCY;
-
-typedef struct _INTEL_PT_PACKET_CYC
-{
-    unsigned short Enable;
-    INTEL_PT_PACKET_CYC_FREQUENCY Frequency;
-} INTEL_PT_PACKET_CYC;
-
-
-// PWR
-typedef struct _INTEL_PT_PACKET_POWER_EVENTS
-{
-    unsigned short Enable;
-} INTEL_PT_PACKET_POWER_EVENTS;
-
-
-// MTC
-typedef enum _INTEL_PT_PACKET_MTC_FREQUENCY {
-    Art0, Art1, Art2, Art3,
-    Art4, Art5, Art6, Art7,
-    Art8, Art9, Art10, Art11,
-    Art12, Art13, Art14, Art15
-} INTEL_PT_PACKET_MTC_FREQUENCY;
-
-typedef struct _INTEL_PT_PACKET_MTC
-{
-    unsigned short Enable;
-    INTEL_PT_PACKET_MTC_FREQUENCY Frequency;
-} INTEL_PT_PACKET_MTC;
-
-// TSC
-typedef struct _INTEL_PT_PACKET_TSC
-{
-    unsigned short Enable;
-} INTEL_PT_PACKET_TSC;
-
-// COFI -- should be enabled by default?...
-typedef struct _INTEL_PT_PACKET_COFI
-{
-    unsigned short Enable;
-} INTEL_PT_PACKET_COFI;
-
-// PTW
-typedef struct _INTEL_PT_PACKET_PTW
-{
-    unsigned short Enable;
-} INTEL_PT_PACKET_PTW;
-
-// Other packet generation options
-typedef enum _INTEL_PT_PACKET_PSB_FREQUENCY {
-    Freq2K, Freq4K, Freq8K, Freq16K,
-    Freq32K, Freq64K, Freq128K, Freq256K,
-    Freq512K, Freq1M, Freq2M, Freq4M,
-    Freq8M, Freq16M, Freq32M, Freq64M
-} INTEL_PT_PACKET_PSB_FREQUENCY;
-
-typedef struct _INTEL_PT_PACKET_MISC {
-    unsigned short EnableFupPacketsAfterPtw;
-    unsigned short DisableRetCompression;
-    unsigned short InjectPsbPmiOnEnable;
-    INTEL_PT_PACKET_PSB_FREQUENCY PsbFrequency;
-} INTEL_PT_PACKET_MISC;
-
-// Aggregate all the packet generation structures
-typedef struct _INTEL_PT_PACKET_GENERATION_OPTIONS {
-    INTEL_PT_PACKET_CYC PacketCyc;
-    INTEL_PT_PACKET_POWER_EVENTS PacketPwr;
-    INTEL_PT_PACKET_MTC PackteMtc;
-    INTEL_PT_PACKET_TSC PacketTsc;
-    INTEL_PT_PACKET_COFI PacketCofi;
-    INTEL_PT_PACKET_PTW PacketPtw;
-    INTEL_PT_PACKET_MISC Misc;
-} INTEL_PT_PACKET_GENERATION_OPTIONS;
-
-///////////////////////////////////////////////////// Ctrl
-
 // As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
 typedef union _IA32_RTIT_CTL_STRUCTURE {
 
@@ -247,11 +32,9 @@ typedef union _IA32_RTIT_CTL_STRUCTURE {
         unsigned long long ReservedZero3 : 8;        // 55:48
         unsigned long long InjectPsbPmiOnEnable : 1;        // 56
         unsigned long long ReservedZero4 : 7;        // 63:57
-    } Values;
+    } Fields;
     unsigned long long Raw;
 } IA32_RTIT_CTL_STRUCTURE;
-
-
 
 //////////////////////////////////////////////////// Output 
 
@@ -279,17 +62,15 @@ typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
         // REMINDER: Lowest mask available is 128 -> last 7 bits are ALWAYS 1
         unsigned long long MaskOrTableOffset : 32;      // 31:0
         unsigned long long OutputOffset : 32;           // 64:32
-    } Values;
+    } Fields;
     unsigned long long Raw;
 } IA32_RTIT_OUTPUT_MASK_STRUCTURE;
 
 typedef enum _INTEL_PT_OUTPUT_TYPE {
-
     PtOutputTypeSingleRegion,
     PtOutputTypeToPA,
     PtOutputTypeToPASingleRegion,
     PtOutputTypeTraceTransportSubsystem,    // Unsupported?
-
 } INTEL_PT_OUTPUT_TYPE;
 
 typedef struct _TOPA_TABLE {
@@ -304,18 +85,142 @@ typedef struct _INTEL_PT_OUTPUT_OPTIONS {
     INTEL_PT_OUTPUT_TYPE OutputType;
     unsigned TopaEntries;
     unsigned EntrySize;
-
     unsigned long long OutputBase;
     IA32_RTIT_OUTPUT_MASK_STRUCTURE OutputMask;
     TOPA_TABLE* TopaTable;
-
 } INTEL_PT_OUTPUT_OPTIONS;
 
-// Final structure for configuring IPT
-typedef struct _INTEL_PT_CONFIGURATION {
-    INTEL_PT_FILTERING_OPTIONS          FilteringOptions;
-    INTEL_PT_PACKET_GENERATION_OPTIONS  PacketGenerationOptions;
-    INTEL_PT_OUTPUT_OPTIONS             OutputOptions;
-} INTEL_PT_CONFIGURATION;
+// As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
+typedef union _IA32_RTIT_STATUS_STRUCTURE {
+    struct {
+        unsigned long long FilterEn : 1;        // 0
+        unsigned long long ContextEn : 1;        // 1  
+        unsigned long long TriggerEn : 1;        // 2
+        unsigned long long Reserved0 : 1;        // 3
+        unsigned long long Error : 1;        // 4
+        unsigned long long Stopped : 1;        // 5
+        unsigned long long SendPSB : 1;        // 6
+        unsigned long long PendToPAPMI : 1;        // 7
+        unsigned long long ReservedZero0 : 24;       // 31:8
+        unsigned long long PacketByteCnt : 17;       // 48:32
+        unsigned long long Reserved1 : 15;       // 10
+    } Fields;
+    unsigned long long Raw;
+} IA32_RTIT_STATUS_STRUCTURE;
+
+
+typedef enum CPUID_INDEX {
+    CpuidEax,
+    CpuidEbx,
+    CpuidEcx,
+    CpuidEdx
+} CPUID_INDEX;
+
+
+typedef union _PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE {
+
+    struct {
+
+        unsigned long Vector : 8;
+        unsigned long DeliveryMode : 3;
+        unsigned long Reserved0 : 1;
+        unsigned long DeliveryStatus : 1;
+        unsigned long Reserved1 : 3;
+        unsigned long Mask : 1;
+        unsigned long Raw : 15;
+
+    } Values;
+
+    unsigned long Raw;
+
+} PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE;
+
+typedef union _IA32_PERF_GLOBAL_STATUS_STRUCTURE {
+
+    struct {
+        unsigned long long OvfPMC0 : 1; // 0
+        unsigned long long OvfPMC1 : 1; // 1
+        unsigned long long OvfPMC2 : 1; // 2
+        unsigned long long OvfPMC3 : 1; // 3
+        unsigned long long Reserved0 : 28; // 31:4
+        unsigned long long OvfFixedCtr0 : 1; // 32
+        unsigned long long OvfFixedCtr1 : 1; // 33
+        unsigned long long OvfFixedCtr2 : 1; // 34
+        unsigned long long Reserved1 : 13; // 47:35
+        unsigned long long OvfPerfMetrics : 1; // 48
+        unsigned long long Reserved2 : 6; // 54:49
+        unsigned long long TopaPMI : 1; // 55
+        unsigned long long Reserved3 : 2; // 57:56
+        unsigned long long LbrFrz : 1; // 58
+        unsigned long long CrtFrz : 1; // 59
+        unsigned long long Asci : 1; // 60
+        unsigned long long OvfUncore : 1; // 61
+        unsigned long long OvfBuf : 1; // 62
+        unsigned long long CondChgd : 1; // 63
+    } Values;
+    unsigned long long Raw;
+
+} IA32_PERF_GLOBAL_STATUS_STRUCTURE;
+
+typedef union _IA32_APIC_BASE_STRUCTURE {
+
+    struct {
+        unsigned long long Reserved0 : 8;
+        unsigned long long BSPFlag : 1;
+        unsigned long long Reserved1 : 1;
+        unsigned long long EnableX2ApicMode : 1;
+        unsigned long long ApicGlobalEnbale : 1;
+        unsigned long long ApicBase : 52;
+    } Values;
+    unsigned long long Raw;
+} IA32_APIC_BASE_STRUCTURE;
+
+#define PT_POOL_TAG                         'PTPT'
+#define INTEL_PT_OUTPUT_TAG                 'IPTO'
+
+#define PT_OPTION_IS_SUPPORTED(capability, option)  (((!capability) && (option)) ? FALSE : TRUE)
+
+#define PT_OUTPUT_CONTIGNUOUS_BASE_MASK             0x7F
+#define PT_OUTPUT_TOPA_BASE_MASK                    0xFFF
+
+#define CPUID_INTELPT_AVAILABLE_LEAF        0x7
+#define CPUID_INTELPT_AVAILABLE_SUBLEAF     0x0
+
+#define CPUID_INTELPT_CAPABILITY_LEAF       0x14
+
+#define BIT(x)                              (1<<x)
+
+#define INTEL_PT_BIT                        25
+#define INTEL_PT_MASK                       BIT(INTEL_PT_BIT)
+#define PT_FEATURE_AVAILABLE(v)             ((v) != 0)
+
+
+#define IA32_RTIT_OUTPUT_BASE               0x560
+#define IA32_RTIT_OUTPUT_MASK_PTRS          0x561
+#define IA32_RTIT_CTL                       0x570
+#define IA32_RTIT_CR3_MATCH                 0x572
+
+#define IA32_RTIT_ADDR0_A                   0x580
+#define IA32_RTIT_ADDR0_B                   0x581
+#define IA32_RTIT_ADDR1_A                   0x582
+#define IA32_RTIT_ADDR1_B                   0x583
+#define IA32_RTIT_ADDR2_A                   0x584
+#define IA32_RTIT_ADDR2_B                   0x585
+#define IA32_RTIT_ADDR3_A                   0x586
+#define IA32_RTIT_ADDR3_B                   0x587
+
+#define IA32_APIC_BASE                      0x1B
+#define IA32_LVT_REGISTER                   0x834
+#define MSR_IA32_PERF_GLOBAL_STATUS		    0x0000038e
+#define MSR_IA32_PERF_GLOBAL_OVF_CTRL       0x00000390
+
+#define IA32_RTIT_STATUS                    0x571
+#define PtGetStatus(ia32_rtit_ctl_structure) (ia32_rtit_ctl_structure.Raw = __readmsr(IA32_RTIT_STATUS))
+
+TOPA_TABLE* gTopa;
+INTEL_PT_CAPABILITIES*  gPtCapabilities = NULL;
+BOOLEAN                 gTraceEnabled = FALSE;
+unsigned long long      gFrequency = 3;
+unsigned long long      gBufferSize = 0x1000;   // PAGE_SIZE
 
 #endif

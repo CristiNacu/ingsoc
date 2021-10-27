@@ -161,6 +161,9 @@
     <ClCompile Include="Driver.c" />
     <ClCompile Include="ProcessorTrace.c" />
     <ClCompile Include="DriverUtils.c" />
+    <ClCompile Include="ProcessorTraceWindowsCommands.c" />
+    <ClCompile Include="ProcessorTraceWindowsCommunication.c" />
+    <ClCompile Include="ProcessorTraceWindowsControl.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Communication.h" />
@@ -171,7 +174,10 @@
     <ClInclude Include="IntelProcessorTraceDefs.h" />
     <ClInclude Include="ProcessorTrace.h" />
     <ClInclude Include="DriverUtils.h" />
-    <ClInclude Include="ProcessorTraceControlStructure.h" />
+    <ClInclude Include="ProcessorTraceShared.h" />
+    <ClInclude Include="ProcessorTraceWindowsCommands.h" />
+    <ClInclude Include="ProcessorTraceWindowsCommunication.h" />
+    <ClInclude Include="ProcessorTraceWindowsControl.h" />
     <ClInclude Include="Public.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

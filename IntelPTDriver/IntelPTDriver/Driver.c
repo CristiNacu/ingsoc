@@ -2,8 +2,10 @@
 #include "Device.h"
 #include "Communication.h"
 #include "Debug.h"
-#include "CommunicationCallbacks.h"
 #include "ProcessorTrace.h"
+#include "ProcessorTraceWindowsCommands.h"
+#include "ProcessorTraceWindowsCommunication.h"
+#include "ProcessorTraceWindowsControl.h"
 
 DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD DeviceAdd;
@@ -32,33 +34,33 @@ IO_QUEUE_SETTINGS DEFAULT_QUEUE_SETTINGS = {
     .DefaultQueue = TRUE,
     .QueueType = WdfIoQueueDispatchParallel,
 
-    .Callbacks.IoQueueIoDefault = (PFN_WDF_IO_QUEUE_IO_DEFAULT)CommIngonreOperation,
-    .Callbacks.IoQueueIoRead = (PFN_WDF_IO_QUEUE_IO_READ)CommIngonreOperation,
-    .Callbacks.IoQueueIoWrite = (PFN_WDF_IO_QUEUE_IO_WRITE)CommIngonreOperation,
-    .Callbacks.IoQueueIoStop = (PFN_WDF_IO_QUEUE_IO_STOP)CommIngonreOperation,
-    .Callbacks.IoQueueIoResume = (PFN_WDF_IO_QUEUE_IO_RESUME)CommIngonreOperation,
-    .Callbacks.IoQueueIoCanceledOnQueue = (PFN_WDF_IO_QUEUE_IO_CANCELED_ON_QUEUE)CommIngonreOperation,
+    .Callbacks.IoQueueIoDefault = (PFN_WDF_IO_QUEUE_IO_DEFAULT)PtwCommunicationIngonreOperation,
+    .Callbacks.IoQueueIoRead = (PFN_WDF_IO_QUEUE_IO_READ)PtwCommunicationIngonreOperation,
+    .Callbacks.IoQueueIoWrite = (PFN_WDF_IO_QUEUE_IO_WRITE)PtwCommunicationIngonreOperation,
+    .Callbacks.IoQueueIoStop = (PFN_WDF_IO_QUEUE_IO_STOP)PtwCommunicationIngonreOperation,
+    .Callbacks.IoQueueIoResume = (PFN_WDF_IO_QUEUE_IO_RESUME)PtwCommunicationIngonreOperation,
+    .Callbacks.IoQueueIoCanceledOnQueue = (PFN_WDF_IO_QUEUE_IO_CANCELED_ON_QUEUE)PtwCommunicationIngonreOperation,
 
-    .Callbacks.IoQueueIoDeviceControl = (PFN_WDF_IO_QUEUE_IO_DEVICE_CONTROL)CommIoControlCallback,
-    .Callbacks.IoQueueIoInternalDeviceControl = (PFN_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL)CommIngonreOperation
+    .Callbacks.IoQueueIoDeviceControl = (PFN_WDF_IO_QUEUE_IO_DEVICE_CONTROL)PtwCommunicationIoControlCallback,
+    .Callbacks.IoQueueIoInternalDeviceControl = (PFN_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL)PtwCommunicationIngonreOperation
 };
 
 COMM_IO_COMMAND DEFAULT_COMMAND_CALLBACKS[] = {
 
     // COMM_TYPE_TEST
-        CommandTest,
+        PtwCommandTest,
 
     // COMM_TYPE_QUERY_IPT_CAPABILITIES
-        CommandGetPtCapabilities,
+        PtwCommandQueryCapabilities,
 
     // COMM_TYPE_SETUP_IPT
-        CommandTestIptSetup,
+        PtwCommandSetupIpt,
 
     // COMM_TYPE_GET_BUFFER
-        CommandSendBuffers,
+        PtwCommandGetBuffer,
 
     // COMM_TYPE_FREE_BUFFER
-        CommandFreeBuffer
+        PtwCommandFreeBuffer
 };
 
 
@@ -68,16 +70,6 @@ DriverUnload(
 )
 {
     UNREFERENCED_PARAMETER(Driver);
-    DbgBreakPoint();
-}
-
-VOID
-SerialEvtDriverContextCleanup(
-    _In_
-    WDFOBJECT Object
-)
-{
-    UNREFERENCED_PARAMETER(Object);
     DbgBreakPoint();
 }
 
@@ -112,7 +104,7 @@ DriverEntry(
     WDF_OBJECT_ATTRIBUTES  attributes;
 
     WDFDEVICE device;
-    WDFQUEUE defaultQueue;
+    WDFQUEUE defaultQueue = {0};
 
     // Initialize the driver configuration object to register the
     // entry point for the EvtDeviceAdd callback, KmdfHelloWorldEvtDeviceAdd
@@ -120,7 +112,6 @@ DriverEntry(
     WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
 
     config.EvtDriverUnload = DriverUnload;
-    attributes.EvtCleanupCallback = SerialEvtDriverContextCleanup;
     
     // Set Driver constants
     gDriverData.IoCallbacks = DEFAULT_COMMAND_CALLBACKS;
@@ -158,7 +149,7 @@ DriverEntry(
     DEBUG_PRINT("Device Addr %p\n", device);
 
     // Initialize communication queue. The default, parallel one.
-    status = InitCommQueue(
+    status = PtwCommunicationInit(
         device,
         &DEFAULT_QUEUE_SETTINGS,
         &defaultQueue
@@ -185,7 +176,7 @@ DriverEntry(
      
     WdfControlFinishInitializing(device);
 
-    PtInit();
+    PtwInit();
 
     return status;
 }

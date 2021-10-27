@@ -61,4 +61,8 @@ DuEnqueueElements(
     PVOID Elements[]
 );
 
+QUEUE_HEAD_STRUCTURE*   gQueueHead;
+KEVENT                  gPagesAvailableEvent;
+KMUTEX                  gCommMutex;
+
 #endif

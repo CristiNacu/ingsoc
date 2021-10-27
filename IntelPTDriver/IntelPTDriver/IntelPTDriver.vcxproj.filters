@@ -17,6 +17,24 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
+    <Filter Include="Header Files\IntelProcessorTrace">
+      <UniqueIdentifier>{648ee96e-03f7-485b-8fb0-222a9b3ee5dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\PlatformConnector">
+      <UniqueIdentifier>{a8be266a-2290-4f55-b7c2-491de1b6bd55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\PlatformConnector\ProcessorTraceWindows">
+      <UniqueIdentifier>{3ed67d06-5ba2-47ee-aac6-174db5ce5bbd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\IntelProcessorTrace">
+      <UniqueIdentifier>{87e5193b-81c9-4cdf-b5a0-1013ba241c5a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformConnector">
+      <UniqueIdentifier>{59a39399-f2bb-435b-b782-c48b42717cc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformConnector\ProcessorTraceWindows">
+      <UniqueIdentifier>{b8834abb-0fc0-4e50-9538-67c0fec0682a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="IntelPTDriver.inf">
@@ -24,55 +42,73 @@
     </Inf>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Driver.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Communication.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Device.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CommunicationCallbacks.c">
+    <ClCompile Include="DriverUtils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ProcessorTrace.c">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\IntelProcessorTrace</Filter>
     </ClCompile>
-    <ClCompile Include="DriverUtils.c">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Communication.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClCompile>
+    <ClCompile Include="CommunicationCallbacks.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClCompile>
+    <ClCompile Include="Device.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClCompile>
+    <ClCompile Include="Driver.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessorTraceWindowsControl.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessorTraceWindowsCommunication.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessorTraceWindowsCommands.c">
+      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Public.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Communication.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DriverCommon.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Device.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Debug.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CommunicationCallbacks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ProcessorTrace.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\IntelProcessorTrace</Filter>
     </ClInclude>
     <ClInclude Include="IntelProcessorTraceDefs.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\IntelProcessorTrace</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessorTraceShared.h">
+      <Filter>Header Files\IntelProcessorTrace</Filter>
+    </ClInclude>
+    <ClInclude Include="Communication.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClInclude>
+    <ClInclude Include="CommunicationCallbacks.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClInclude>
+    <ClInclude Include="Device.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClInclude>
+    <ClInclude Include="DriverCommon.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
     </ClInclude>
     <ClInclude Include="DriverUtils.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
     </ClInclude>
-    <ClInclude Include="ProcessorTraceControlStructure.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ProcessorTraceWindowsControl.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessorTraceWindowsCommands.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessorTraceWindowsCommunication.h">
+      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
