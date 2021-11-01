@@ -11,8 +11,15 @@ typedef void (GENERIC_PER_CORE_SYNC_ROUTINE)(
     PVOID _In_ Context
 );
 
+typedef enum _PER_CORE_SYNC_EXECUTION_LEVEL {
+    IptPerCoreExecutionLevelIpi,
+    IptPerCoreExecutionLevelDpc
+} PER_CORE_SYNC_EXECUTION_LEVEL;
+
 typedef struct _PER_CORE_SYNC_STRUCTURE {
-    volatile SHORT Counter;
+    volatile SHORT IpiCounter;
+    volatile SHORT DpcCounter;
+    PER_CORE_SYNC_EXECUTION_LEVEL ExecutionLevel;
     PVOID Context;
     GENERIC_PER_CORE_SYNC_ROUTINE *Function;
 } PER_CORE_SYNC_STRUCTURE;
@@ -20,6 +27,31 @@ typedef struct _PER_CORE_SYNC_STRUCTURE {
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreInit;
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreSetup;
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpcPerCoreDisable;
+
+PRIVATE
+VOID
+IptGenericDpcFunction(
+    _In_ struct _KDPC* Dpc,
+    _In_opt_ PVOID DeferredContext,
+    _In_opt_ PVOID SystemArgument1,
+    _In_opt_ PVOID SystemArgument2
+)
+{
+    UNREFERENCED_PARAMETER(Dpc);
+    UNREFERENCED_PARAMETER(SystemArgument1);
+    UNREFERENCED_PARAMETER(SystemArgument2);
+
+    PER_CORE_SYNC_STRUCTURE* syncStructure = (PER_CORE_SYNC_STRUCTURE*)DeferredContext;
+
+    ULONG procNumber = KeGetCurrentProcessorNumber();
+    DEBUG_PRINT("Executig method on CPU %d LEVEL DPC\n", procNumber);
+
+    if (syncStructure->ExecutionLevel == IptPerCoreExecutionLevelDpc)
+        syncStructure->Function(syncStructure->Context);
+
+    InterlockedIncrement16(&syncStructure->DpcCounter);
+
+}
 
 void 
 IptPageAllocation(
@@ -49,12 +81,14 @@ PerCoreDispatcherRoutine(
 )
 {
     PER_CORE_SYNC_STRUCTURE* syncStructure = (PER_CORE_SYNC_STRUCTURE*)Argument;
-
+   
     ULONG procNumber = KeGetCurrentProcessorNumber();
-    DEBUG_PRINT("Executig method on CPU %d\n", procNumber);
+    DEBUG_PRINT("Executig method on CPU %d LEVEL IPI\n", procNumber);
 
-    syncStructure->Function(syncStructure->Context);
-    InterlockedIncrement16(&syncStructure->Counter);
+    if(syncStructure->ExecutionLevel == IptPerCoreExecutionLevelIpi)
+        syncStructure->Function(syncStructure->Context);
+    
+    InterlockedIncrement16(&syncStructure->IpiCounter);
     return 0;
 }
 
@@ -62,23 +96,73 @@ PRIVATE
 NTSTATUS
 PtwExecuteAndWaitPerCore(
     GENERIC_PER_CORE_SYNC_ROUTINE* PtwPerCoreRoutine,
+    PER_CORE_SYNC_EXECUTION_LEVEL ExecutionLevel,
     PVOID Context
 )
 {
-    //PKDPC pProcDpc;
+    PKDPC pProcDpc;
     LONG numberOfCores = (LONG)KeQueryActiveProcessorCount(NULL);
 
     PER_CORE_SYNC_STRUCTURE syncStructure = {
-        .Counter = 0,
+        .IpiCounter = 0,
+        .DpcCounter = 0,
+        .ExecutionLevel = ExecutionLevel,
         .Context = Context,
         .Function = PtwPerCoreRoutine
     };
 
+    if (ExecutionLevel == IptPerCoreExecutionLevelDpc)
+    {
+
+
+        for (LONG i = 0; i < numberOfCores; i++)
+        {
+            pProcDpc = (PKDPC)ExAllocatePoolWithTag(
+                NonPagedPool,
+                sizeof(KDPC),
+                PTW_POOL_TAG
+            );
+            if (pProcDpc == NULL)
+            {
+                DEBUG_PRINT("pProcDpc was allocated NULL. Exitting\n");
+                return STATUS_INSUFFICIENT_RESOURCES;
+            }
+
+            KeInitializeDpc(
+                pProcDpc,
+                IptGenericDpcFunction,
+                &syncStructure
+            );
+
+            // Set DPC for all processors
+            KeSetTargetProcessorDpc(
+                pProcDpc,
+                (CCHAR)i
+            );
+
+            BOOLEAN status = KeInsertQueueDpc(
+                pProcDpc,
+                NULL,
+                NULL
+            );
+            if (!status)
+            {
+                return STATUS_ACCESS_DENIED;
+            }
+        }
+    }
     // TODO: Is sending an IPI a good implementation????
     KeIpiGenericCall(PerCoreDispatcherRoutine, (ULONG_PTR)&syncStructure);
 
     // TODO: Shoud i force an interrupt on all cores to process the DPC queues?
-    while (syncStructure.Counter != numberOfCores);
+    if (ExecutionLevel == IptPerCoreExecutionLevelDpc)
+    {
+        while (syncStructure.DpcCounter != numberOfCores);
+        DEBUG_PRINT("Execution DPC finished successfully\n");
+        DEBUG_STOP();
+    }
+    else
+        while (syncStructure.IpiCounter != numberOfCores);
 
     return STATUS_SUCCESS;
 }
@@ -106,7 +190,7 @@ PtwInit()
         return status;
     }
 
-    status = PtwExecuteAndWaitPerCore(PtwIpiPerCoreInit, NULL);
+    status = PtwExecuteAndWaitPerCore(PtwIpiPerCoreInit, IptPerCoreExecutionLevelDpc, NULL);
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -130,14 +214,14 @@ PtwSetup(
     INTEL_PT_CONFIGURATION *Config
 )
 {
-    return PtwExecuteAndWaitPerCore(PtwIpiPerCoreSetup, Config);
+    return PtwExecuteAndWaitPerCore(PtwIpiPerCoreSetup, IptPerCoreExecutionLevelDpc, Config);
 }
 
 PUBLIC
 NTSTATUS 
 PtwDisable()
 {
-    return PtwExecuteAndWaitPerCore(PtwIpcPerCoreDisable, NULL);
+    return PtwExecuteAndWaitPerCore(PtwIpcPerCoreDisable, IptPerCoreExecutionLevelDpc, NULL);
 }
 
 PUBLIC
