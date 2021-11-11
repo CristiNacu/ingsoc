@@ -113,6 +113,11 @@ IptEnableTrace(
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+    DEBUG_STOP();
+    if (IptError())
+    {
+        IptClearError();
+    }
 
     ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
     ia32RtitCtlMsrShadow.Fields.TraceEn = TRUE;
@@ -121,7 +126,8 @@ IptEnableTrace(
     
     if (IptError() || !IptEnabled())
     {
-        DEBUG_PRINT("Pt TraceEnable failed\n");
+        ULONG crtCpu = KeGetCurrentProcessorNumber();
+        DEBUG_PRINT("Pt TraceEnable failed %d\n", crtCpu);
         DEBUG_STOP();
         return STATUS_UNSUCCESSFUL;
     }
@@ -191,6 +197,14 @@ BOOLEAN IptError()
     IA32_RTIT_STATUS_STRUCTURE ptStatus;
     PtGetStatus(ptStatus);
     return !!ptStatus.Fields.Error;
+}
+
+void IptClearError()
+{
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
+    PtGetStatus(ptStatus);
+    ptStatus.Fields.Error = FALSE;
+    PtSetStatus(ptStatus.Raw);
 }
 
 BOOLEAN IptEnabled()
@@ -391,6 +405,7 @@ IptConfigureProcessorTrace(
         __writemsr(IA32_RTIT_ADDR3_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].EndAddress);
     }
 
+    DEBUG_STOP();
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, OutputOptions->OutputMask.Raw);
     __writemsr(IA32_RTIT_OUTPUT_BASE, OutputOptions->OutputBase);
@@ -442,6 +457,7 @@ IptConfigureProcessorTrace(
     return STATUS_SUCCESS;
 }
 
+#define DEFAULT_NUMBER_OF_TOPA_ENTRIES 10
 
 NTSTATUS
 IptInitTopaOutput(
@@ -449,148 +465,105 @@ IptInitTopaOutput(
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
+    TOPA_TABLE* topaTable;
+    PVOID topaTablePa;
+    TOPA_ENTRY* topaTableVa;
+    PMDL mdl;
+    PPFN_NUMBER pfnArray;
+
+    PHYSICAL_ADDRESS lowAddress = { .QuadPart = 0 };
+    PHYSICAL_ADDRESS highAddress = { .QuadPart = -1L };
 
     if (!Options)
         return STATUS_INVALID_PARAMETER_1;
-    //if (!OutputConfiguration)
-    //    return STATUS_INVALID_PARAMETER_2;
 
-    if (gPtCapabilities->IptCapabilities0.Ecx.TopaMultipleOutputEntriesSupport)
+    if (gPtCapabilities->IptCapabilities0.Ecx.TopaOutputSupport)
     {
-        Options->OutputType = PtOutputTypeToPA;
+        if (gPtCapabilities->IptCapabilities0.Ecx.TopaMultipleOutputEntriesSupport)
+        {
+            Options->OutputType = PtOutputTypeToPA;
+            Options->TopaEntries = DEFAULT_NUMBER_OF_TOPA_ENTRIES;
+        }
+        else
+        {
+            Options->OutputType = PtOutputTypeToPASingleRegion;
+            Options->TopaEntries = 1;
+        }
     }
     else
     {
-        Options->OutputType = PtOutputTypeToPASingleRegion;
+        // TODO: find a better way to report errors
+        return STATUS_NOT_SUPPORTED;
     }
 
-    TOPA_TABLE* topaTable;
-    PVOID topaTablePa;
-    PVOID topaTableVa;
-
+    // If the hardware cannot support that many entries, error 
+    if (Options->TopaEntries > gPtCapabilities->TopaOutputEntries)
+    {
+        return STATUS_TOO_MANY_LINKS;
+    }
+    DEBUG_STOP();
     // Allocate topa table, an interface for the actual pointer to the topa
-    gMemoryAllocation(
-        (size_t)(unsigned)gBufferSize,
-        PAGE_SIZE,
+    status = DuAllocateBuffer(
+        sizeof(TOPA_TABLE) + (Options->TopaEntries + 1) * sizeof(PVOID),
+        MmCached,
+        TRUE,
         &topaTable,
         NULL
     );
-    if (!topaTable)
+    if (!NT_SUCCESS(status) || !topaTable)
     {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    topaTable->VirtualTopaPagesAddresses = 
-        (PVOID *)((unsigned long long)topaTable + sizeof(TOPA_TABLE));
+    // Is this required?
+    topaTable->VirtualTopaPagesAddresses =
+        (PVOID*)((unsigned long long)topaTable + sizeof(TOPA_TABLE));
 
     // Allocate the actual topa
-    gMemoryAllocation(
+    status = DuAllocateBuffer(
         (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
-        PAGE_SIZE,
-        &topaTableVa,
+        MmCached,
+        TRUE,
+        (PVOID)&topaTableVa,
         &topaTablePa
     );
-    if (!topaTableVa || !topaTablePa)
+    if (!NT_SUCCESS(status) || !topaTableVa || !topaTablePa)
     {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
     topaTable->TopaTableBaseVa = (TOPA_ENTRY*)topaTableVa;
     topaTable->TopaTableBasePa = (unsigned long long)topaTablePa;
+    
+    mdl = MmAllocatePagesForMdlEx(
+        lowAddress,
+        highAddress,
+        lowAddress,
+        Options->TopaEntries * PAGE_SIZE,
+        MmCached,
+        MM_ALLOCATE_FULLY_REQUIRED
+    );
+    pfnArray = MmGetMdlPfnArray(mdl);
 
-    if (Options->OutputType == PtOutputTypeToPA)
+    for (unsigned i = 0; i < Options->TopaEntries; i++)
     {
-        // If the hardware cannot support that many entries, error 
-        if (Options->TopaEntries > gPtCapabilities->TopaOutputEntries)
-        {
-            return STATUS_TOO_MANY_LINKS;
-        }
-
-        // Allocate a page for every topa entry
-        for (unsigned i = 0; i < Options->TopaEntries; i++)
-        {
-            PVOID bufferVa;
-            PVOID bufferPa;
-
-            gMemoryAllocation(
-                PAGE_SIZE,
-                PAGE_SIZE,
-                &bufferVa,
-                &bufferPa
-            );
-            if (!bufferVa || !bufferPa)
-            {
-                return STATUS_INSUFFICIENT_RESOURCES;
-            }
-
-            // Save the page virtual address so that it can be mapped in user space
-            topaTable->VirtualTopaPagesAddresses[i] = bufferVa;
-            // Set the topa entry to point at the current page
-            topaTable->TopaTableBaseVa[i].OutputRegionBasePhysicalAddress = ((unsigned long long)bufferPa) >> 12;
-            topaTable->TopaTableBaseVa[i].Size = Size4K;
-            if (i % gFrequency == 0 && i)
-            {
-                topaTable->TopaTableBaseVa[i].INT = TRUE;
-            }
-        }
-
-        // Last entry will point back to the topa table -> circular buffer
-        topaTable->TopaTableBaseVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
-        topaTable->TopaTableBaseVa[Options->TopaEntries].END = TRUE;
-        topaTable->TopaTableBaseVa[Options->TopaEntries].STOP = FALSE;
-        topaTable->TopaTableBaseVa[Options->TopaEntries].INT = FALSE;
-
-        Options->TopaTable = topaTable;
-        // Configure the trace to start at table 0 index 0 in the current ToPA
-        Options->OutputMask.Raw = 0x7F;
-        Options->OutputBase = (unsigned long long)topaTablePa;
-
-        gTopa = topaTable;
-
-    }
-    else if (Options->OutputType == PtOutputTypeToPASingleRegion)
-    {
-        PVOID bufferVa;
-        PVOID bufferPa;
-
-        gMemoryAllocation(
-            sizeof(TOPA_TABLE),
-            PAGE_SIZE,
-            &topaTable,
-            &topaTablePa
-        );
-
-        if (!topaTable || !topaTablePa)
-        {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        gMemoryAllocation(
-            PAGE_SIZE,
-            PAGE_SIZE,
-            &bufferVa,
-            &bufferPa
-        );
-        if (!NT_SUCCESS(status))
-        {
-            return status;
-        }
-
-        topaTable->TopaTableBaseVa[0].OutputRegionBasePhysicalAddress = ((ULONG64)bufferPa) >> 12;
-        topaTable->TopaTableBaseVa[1].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
-        topaTable->TopaTableBaseVa[1].INT = TRUE;
-
-        Options->TopaTable = topaTable;
-
-        // Leave some space at the beginning of the buffer in case the interrupt doesn't fire exactly when the buffer is filled
-        Options->OutputMask.Fields.OutputOffset = PAGE_SIZE / 4;
-        Options->OutputBase = (unsigned long long)topaTablePa;
-    }
-    else
-    {
-        status = STATUS_UNDEFINED_SCOPE;
+        topaTableVa[i].OutputRegionBasePhysicalAddress = pfnArray[i];
+        topaTableVa[i].END = FALSE;
+        topaTableVa[i].INT = (i % gFrequency == 0) ? TRUE : FALSE;
+        topaTableVa[i].STOP = FALSE;
+        topaTableVa[i].Size = Size4K;
     }
 
+    topaTableVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
+    topaTableVa[Options->TopaEntries].STOP = FALSE;
+    topaTableVa[Options->TopaEntries].INT = FALSE;
+    topaTableVa[Options->TopaEntries].END = TRUE;
+
+    Options->TopaTable = topaTable;
+    // Configure the trace to start at table 0 index 0 in the current ToPA
+    Options->OutputMask.Raw = 0x7F;
+    Options->OutputBase = (unsigned long long)topaTablePa;
+    
     return status;
 }
 
@@ -781,6 +754,9 @@ IptSetup(
     if (!outputOptions)
         return STATUS_INSUFFICIENT_RESOURCES;
 
+    outputOptions->TopaEntries = 10;
+    DEBUG_STOP();
+
     status = IptInitOutputStructure(
         outputOptions
     );
@@ -807,7 +783,11 @@ IptSetup(
     {
         return status;
     }
+
     
+    ULONG crtCpu = KeGetCurrentProcessorNumber();
+    UNREFERENCED_PARAMETER(crtCpu);
+
     ControlStructure->IptHandler = (PVOID)outputOptions;
 
     return status;

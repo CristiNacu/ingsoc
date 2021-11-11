@@ -113,8 +113,6 @@ PtwExecuteAndWaitPerCore(
 
     if (ExecutionLevel == IptPerCoreExecutionLevelDpc)
     {
-
-
         for (LONG i = 0; i < numberOfCores; i++)
         {
             pProcDpc = (PKDPC)ExAllocatePoolWithTag(

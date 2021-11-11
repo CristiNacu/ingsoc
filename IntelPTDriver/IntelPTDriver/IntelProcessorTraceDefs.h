@@ -216,8 +216,8 @@ typedef union _IA32_APIC_BASE_STRUCTURE {
 
 #define IA32_RTIT_STATUS                    0x571
 #define PtGetStatus(ia32_rtit_ctl_structure) (ia32_rtit_ctl_structure.Raw = __readmsr(IA32_RTIT_STATUS))
+#define PtSetStatus(value) __writemsr(IA32_RTIT_STATUS, value)
 
-TOPA_TABLE* gTopa;
 INTEL_PT_CAPABILITIES*  gPtCapabilities = NULL;
 BOOLEAN                 gTraceEnabled = FALSE;
 unsigned long long      gFrequency = 3;

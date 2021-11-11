@@ -54,6 +54,9 @@ IptEnabled(
 void
 IptUninit(
 );
+void
+IptClearError(
+);
 
 NTSTATUS
 IptGetCapabilities(
