@@ -113,7 +113,10 @@ IptEnableTrace(
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+
     DEBUG_STOP();
+    DEBUG_PRINT("Enabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
+
     if (IptError())
     {
         IptClearError();
@@ -127,12 +130,13 @@ IptEnableTrace(
     if (IptError() || !IptEnabled())
     {
         ULONG crtCpu = KeGetCurrentProcessorNumber();
-        DEBUG_PRINT("Pt TraceEnable failed %d\n", crtCpu);
+        DEBUG_PRINT("Pt TraceEnable failed on cpu %d\n", crtCpu);
         DEBUG_STOP();
         return STATUS_UNSUCCESSFUL;
     }
     else
     {
+        DEBUG_PRINT("Enabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
         gTraceEnabled = TRUE;
         return STATUS_SUCCESS;
     }
@@ -143,6 +147,7 @@ IptDisableTrace(
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+    DEBUG_PRINT("Disabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
 
     ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
     ia32RtitCtlMsrShadow.Fields.TraceEn = FALSE;
@@ -151,12 +156,13 @@ IptDisableTrace(
 
     if (IptError() || !IptEnabled())
     {
-        DEBUG_PRINT("Pt TraceDisable failed\n");
+        DEBUG_PRINT("Disabling trace on cpu %d failed\n", KeGetCurrentProcessorNumber());
         DEBUG_STOP();
         return STATUS_UNSUCCESSFUL;
     }
     else
     {
+        DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
         gTraceEnabled = FALSE;
         return STATUS_SUCCESS;
     }
@@ -166,6 +172,17 @@ NTSTATUS
 IptPauseTrace()
 {
     NTSTATUS status = STATUS_SUCCESS;
+
+    if (IptError())
+    {
+        DEBUG_STOP();
+
+        if (!IptEnabled())
+        {
+            DEBUG_PRINT("IPT DISABLED! Walter Fuck?!\n");
+        }
+    }
+
     if (gTraceEnabled)
     {
         status = IptDisableTrace();
@@ -412,16 +429,16 @@ IptConfigureProcessorTrace(
     
     //IA32_APIC_BASE_STRUCTURE apicBase;
     //apicBase.Raw = __readmsr(IA32_APIC_BASE);
-
+    
     //if (apicBase.Values.EnableX2ApicMode)
     //{
     //    DEBUG_PRINT("X2 Apic mode\n");
     //    PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
     //    unsigned long interruptVector = 0x96;
     //    NTSTATUS status;
-
+    //
     //    lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
-
+    //
     //    if (lvt.Raw != 0)
     //    {
     //        // Use the vector that is currently configured
@@ -435,18 +452,7 @@ IptConfigureProcessorTrace(
     //        lvt.Values.DeliveryMode = 0;
     //        lvt.Values.Mask = 0;
     //    }
-
-    //    PMIHANDLER newPmiHandler = PtPmiHandler;
-
-    //    status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
-    //    if (!NT_SUCCESS(status))
-    //    {
-    //        DEBUG_PRINT("HalSetSystemInformation returned status %X\n", status);
-    //    }
-    //    else
-    //    {
-    //        DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
-    //    }
+   
     //}
     //else
     //{

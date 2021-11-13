@@ -463,10 +463,13 @@ IptPmiHandler(
     PKTRAP_FRAME pTrapFrame
 )
 {
+    DEBUG_PRINT("Pmi handler on ap %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
-    PKDPC pProcDpc;
+    //PKDPC pProcDpc;
 
-    IptPauseTrace();
+
+
+ /*   IptPauseTrace();
 
     if (!IptTopaPmiReason())
     {
@@ -501,7 +504,7 @@ IptPmiHandler(
         pProcDpc,
         (PVOID)KeGetCurrentProcessorNumber(),
         NULL
-    );
+    );*/
 
     return;
 }
@@ -567,6 +570,7 @@ IptPageFree(
         VirtualAddress
     );
 }
+typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
 
 
 PRIVATE
@@ -588,6 +592,18 @@ PtwIpiPerCoreSetup(
     if (!NT_SUCCESS(status))
     {
         DEBUG_PRINT("IptSetup returned status %X\n", status);
+    }
+
+    PMIHANDLER newPmiHandler = IptPmiHandler;
+
+    status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("HalSetSystemInformation returned status %X\n", status);
+    }
+    else
+    {
+        DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
     }
 
     IptEnableTrace();
