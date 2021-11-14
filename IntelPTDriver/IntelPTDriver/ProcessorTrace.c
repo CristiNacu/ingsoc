@@ -136,7 +136,6 @@ IptEnableTrace(
     else
     {
         DEBUG_PRINT("Enabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
-        gTraceEnabled = TRUE;
         return STATUS_SUCCESS;
     }
 }
@@ -162,7 +161,6 @@ IptDisableTrace(
     else
     {
         DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
-        gTraceEnabled = FALSE;
         return STATUS_SUCCESS;
     }
 }
@@ -182,11 +180,10 @@ IptPauseTrace()
         }
     }
 
-    if (gTraceEnabled)
-    {
+    if(IptEnabled())
         status = IptDisableTrace();
-        gTraceEnabled = TRUE;
-    }
+
+
     return status;
 
 }
@@ -195,7 +192,7 @@ NTSTATUS
 IptResumeTrace()
 {
     NTSTATUS status = STATUS_SUCCESS;
-    if (gTraceEnabled)
+    if (!IptEnabled())
     {
         status = IptEnableTrace();
     }
@@ -293,7 +290,7 @@ IptUnlinkFullBuffers(
     IA32_RTIT_STATUS_STRUCTURE ptStatus;
     PtGetStatus(ptStatus);
 
-    unsigned long long bufferCount = (ptStatus.Fields.PacketByteCnt / gBufferSize);
+    unsigned long long bufferCount = (ptStatus.Fields.PacketByteCnt / PAGE_SIZE);
     if (bufferCount > gFrequency)
     {
         // Means we have more than one ISR issued
@@ -316,7 +313,7 @@ IptUnlinkFullBuffers(
         oldBufferVa = Table->VirtualTopaPagesAddresses[crtBufferCount];
 
         gMemoryAllocation(
-            (size_t)(unsigned)gBufferSize,
+            (size_t)(unsigned)PAGE_SIZE,
             PAGE_SIZE,
             &newBufferVa,
             &newBufferPa
@@ -637,9 +634,9 @@ IptInitPerCore(
 )
 {
     ControlStructure->IptEnabled = IptEnabled();
-    if (gTraceEnabled)
+    if (ControlStructure->IptEnabled)
     {
-        DEBUG_PRINT("IntelPt is in use...\n");
+        DEBUG_PRINT("IntelPt is already in use...\n");
     }
 
     // TODO: How shold i handle the case where IPT is already enabled?

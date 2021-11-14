@@ -219,8 +219,6 @@ typedef union _IA32_APIC_BASE_STRUCTURE {
 #define PtSetStatus(value) __writemsr(IA32_RTIT_STATUS, value)
 
 INTEL_PT_CAPABILITIES*  gPtCapabilities = NULL;
-BOOLEAN                 gTraceEnabled = FALSE;
 unsigned long long      gFrequency = 3;
-unsigned long long      gBufferSize = 0x1000;   // PAGE_SIZE
 
 #endif
