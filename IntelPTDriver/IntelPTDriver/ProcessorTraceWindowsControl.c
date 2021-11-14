@@ -194,7 +194,7 @@ PtwInit()
         return status;
     }
 
-    DEBUG_STOP();
+    //DEBUG_STOP();
 
     return status;
 }
@@ -263,7 +263,7 @@ PtwHookThreadCreation(
     if (!Create)
         return; // Destul de rau
 
-    DEBUG_STOP();
+    //DEBUG_STOP();
 
 
     unsigned long long  cr3 = __readcr3() & (~(PAGE_SIZE - 1));
@@ -329,7 +329,7 @@ PtwHookProcessExit(
     if (ProcessId != gProcessId)
         return;
 
-    DEBUG_STOP();
+    //DEBUG_STOP();
 
     status = PsRemoveCreateThreadNotifyRoutine(
         PtwHookThreadCreation
@@ -362,7 +362,7 @@ PtwHookImageLoad(
         goto cleanup;
     }
 
-    DEBUG_STOP();
+    //DEBUG_STOP();
     gProcessId = ProcessId;
 
     status = PsSetCreateThreadNotifyRoutineEx(
@@ -465,9 +465,10 @@ IptPmiHandler(
 {
     DEBUG_PRINT("Pmi handler on ap %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
+    IptResetPmi();
+
+
     //PKDPC pProcDpc;
-
-
 
  /*   IptPauseTrace();
 
@@ -505,6 +506,7 @@ IptPmiHandler(
         (PVOID)KeGetCurrentProcessorNumber(),
         NULL
     );*/
+
 
     return;
 }
@@ -591,8 +593,11 @@ PtwIpiPerCoreSetup(
     );
     if (!NT_SUCCESS(status))
     {
+        DEBUG_STOP();
         DEBUG_PRINT("IptSetup returned status %X\n", status);
     }
+
+    DEBUG_STOP();
 
     PMIHANDLER newPmiHandler = IptPmiHandler;
 

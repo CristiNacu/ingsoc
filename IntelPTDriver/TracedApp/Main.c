@@ -24,6 +24,8 @@ void main()
     while (1 == 1)
     {
         YieldProcessor();
+
+        printf_s("Running on AP %d\n", GetCurrentProcessorNumber());
      }
      
 

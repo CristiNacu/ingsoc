@@ -114,7 +114,6 @@ IptEnableTrace(
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
 
-    DEBUG_STOP();
     DEBUG_PRINT("Enabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
 
     if (IptError())
@@ -361,9 +360,6 @@ IptConfigureProcessorTrace(
     INTEL_PT_OUTPUT_OPTIONS* OutputOptions
 )
 {
-    if (gTraceEnabled)
-        return STATUS_ALREADY_INITIALIZED;
-
     //if (FilterConfiguration->OutputOptions.OutputType == PtOutputTypeTraceTransportSubsystem)
     //    return STATUS_NOT_SUPPORTED;
 
@@ -422,43 +418,9 @@ IptConfigureProcessorTrace(
         __writemsr(IA32_RTIT_ADDR3_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[3].EndAddress);
     }
 
-    DEBUG_STOP();
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, OutputOptions->OutputMask.Raw);
     __writemsr(IA32_RTIT_OUTPUT_BASE, OutputOptions->OutputBase);
-    
-    //IA32_APIC_BASE_STRUCTURE apicBase;
-    //apicBase.Raw = __readmsr(IA32_APIC_BASE);
-    
-    //if (apicBase.Values.EnableX2ApicMode)
-    //{
-    //    DEBUG_PRINT("X2 Apic mode\n");
-    //    PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
-    //    unsigned long interruptVector = 0x96;
-    //    NTSTATUS status;
-    //
-    //    lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
-    //
-    //    if (lvt.Raw != 0)
-    //    {
-    //        // Use the vector that is currently configured
-    //        DEBUG_PRINT("LVT already configured\n");
-    //        interruptVector = lvt.Values.Vector;
-    //    }
-    //    else
-    //    {
-    //        // Todo: maybe I should make sure that I use an interrupt that is not in use by the OS right now
-    //        lvt.Values.Vector = interruptVector;
-    //        lvt.Values.DeliveryMode = 0;
-    //        lvt.Values.Mask = 0;
-    //    }
-   
-    //}
-    //else
-    //{
-    //    DEBUG_PRINT("X Apic mode\n");
-    //    // TODO: IMplement MMIO apic setup
-    //}
    
     return STATUS_SUCCESS;
 }
@@ -479,7 +441,7 @@ IptInitTopaOutput(
 
     PHYSICAL_ADDRESS lowAddress = { .QuadPart = 0 };
     PHYSICAL_ADDRESS highAddress = { .QuadPart = -1L };
-
+    
     if (!Options)
         return STATUS_INVALID_PARAMETER_1;
 
@@ -507,7 +469,8 @@ IptInitTopaOutput(
     {
         return STATUS_TOO_MANY_LINKS;
     }
-    DEBUG_STOP();
+
+
     // Allocate topa table, an interface for the actual pointer to the topa
     status = DuAllocateBuffer(
         sizeof(TOPA_TABLE) + (Options->TopaEntries + 1) * sizeof(PVOID),
@@ -549,7 +512,13 @@ IptInitTopaOutput(
         MmCached,
         MM_ALLOCATE_FULLY_REQUIRED
     );
+    if (mdl == NULL)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
     pfnArray = MmGetMdlPfnArray(mdl);
+
 
     for (unsigned i = 0; i < Options->TopaEntries; i++)
     {
@@ -639,7 +608,6 @@ IptInitOutputStructure(
     INTEL_PT_OUTPUT_OPTIONS* Options
 )
 {
-
     if (gPtCapabilities->IptCapabilities0.Ecx.TopaOutputSupport)
     {
         return IptInitTopaOutput(
@@ -716,6 +684,8 @@ IptInit(
         }
     }
 
+    
+
     return status;
 }
 
@@ -743,6 +713,7 @@ IptSetup(
     NTSTATUS status;
     INTEL_PT_OUTPUT_OPTIONS *outputOptions;
     
+
     status = IptValidateConfigurationRequest(
         FilterConfiguration
     );
@@ -761,7 +732,6 @@ IptSetup(
         return STATUS_INSUFFICIENT_RESOURCES;
 
     outputOptions->TopaEntries = 10;
-    DEBUG_STOP();
 
     status = IptInitOutputStructure(
         outputOptions
@@ -789,7 +759,6 @@ IptSetup(
     {
         return status;
     }
-
     
     ULONG crtCpu = KeGetCurrentProcessorNumber();
     UNREFERENCED_PARAMETER(crtCpu);
