@@ -30,6 +30,12 @@ GENERIC_PER_CORE_SYNC_ROUTINE PtwIpcPerCoreDisable;
 
 PRIVATE
 VOID
+IptPmiHandler(
+    PKTRAP_FRAME pTrapFrame
+);
+
+PRIVATE
+VOID
 IptGenericDpcFunction(
     _In_ struct _KDPC* Dpc,
     _In_opt_ PVOID DeferredContext,
@@ -208,12 +214,31 @@ PtwUninit()
     IptUninit();
 }
 
+typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
+
 PRIVATE
 NTSTATUS 
 PtwSetup(
     INTEL_PT_CONFIGURATION *Config
 )
 {
+
+    DEBUG_STOP();
+    PMIHANDLER newPmiHandler;
+    NTSTATUS status;
+
+    newPmiHandler = IptPmiHandler;
+    status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("HalSetSystemInformation returned status %X\n", status);
+    }
+    else
+    {
+        DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
+    }
+
+
     return PtwExecuteAndWaitPerCore(PtwIpiPerCoreSetup, IptPerCoreExecutionLevelDpc, Config);
 }
 
@@ -579,7 +604,6 @@ IptPageFree(
         VirtualAddress
     );
 }
-typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
 
 
 PRIVATE
@@ -591,7 +615,6 @@ PtwIpiPerCoreSetup(
     INTEL_PT_CONFIGURATION* config = (INTEL_PT_CONFIGURATION*)Context;
     //INTEL_PT_CONTROL_STRUCTURE controlStructure;
     NTSTATUS status;
-    PMIHANDLER newPmiHandler;
 
     DEBUG_STOP();
 
@@ -605,20 +628,6 @@ PtwIpiPerCoreSetup(
     {
         DEBUG_STOP();
         DEBUG_PRINT("IptSetup returned status %X\n", status);
-    }
-
-    DEBUG_STOP();
-
-    newPmiHandler = IptPmiHandler;
-
-    status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("HalSetSystemInformation returned status %X\n", status);
-    }
-    else
-    {
-        DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
     }
 
     IptEnableTrace(
