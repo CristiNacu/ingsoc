@@ -21,10 +21,9 @@ void main()
     //        NULL
     //    );
     //}
-    while (1 == 1)
+    for (unsigned i = 0; i < 0xff; i++)
     {
         YieldProcessor();
-
         printf_s("Running on AP %d\n", GetCurrentProcessorNumber());
      }
      

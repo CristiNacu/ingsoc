@@ -192,10 +192,57 @@ typedef struct _INTEL_PT_CAPABILITIES {
     unsigned long long    TopaOutputEntries;
 } INTEL_PT_CAPABILITIES;
 
-typedef struct _INTEL_PT_CONTROL_STRUCTURE {
 
-    BOOLEAN         IptEnabled;
-    PVOID           IptHandler;
+
+
+
+typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
+    struct {
+        // REMINDER: Lowest mask available is 128 -> last 7 bits are ALWAYS 1
+        unsigned long long MaskOrTableOffset : 32;      // 31:0
+        unsigned long long OutputOffset : 32;           // 64:32
+    } Fields;
+    unsigned long long Raw;
+} IA32_RTIT_OUTPUT_MASK_STRUCTURE;
+
+typedef enum _INTEL_PT_OUTPUT_TYPE {
+    PtOutputTypeSingleRegion,
+    PtOutputTypeToPA,
+    PtOutputTypeToPASingleRegion,
+    PtOutputTypeTraceTransportSubsystem,    // Unsupported?
+} INTEL_PT_OUTPUT_TYPE;
+
+typedef enum _IPT_RUNNING_STATUS {
+
+    IPT_STATUS_UNINITIALIZED,
+    IPT_STATUS_INITIALIZED,
+    IPT_STATUS_DISABLED = IPT_STATUS_INITIALIZED,
+    IPT_STATUS_PAUSED,
+    IPT_STATUS_ENABLED
+
+} IPT_RUNNING_STATUS;
+
+typedef struct _INTEL_PT_OUTPUT_OPTIONS {
+
+    IPT_RUNNING_STATUS RunningStatus;
+    INTEL_PT_OUTPUT_TYPE OutputType;
+    unsigned TopaEntries;
+    unsigned EntrySize;
+
+    BOOLEAN Flushed;
+
+    PVOID TopaMdl;
+
+    PVOID TopaTablePa;
+    PVOID TopaTableVa;
+    IA32_RTIT_OUTPUT_MASK_STRUCTURE OutputMask;
+
+
+} INTEL_PT_OUTPUT_OPTIONS;
+
+typedef struct _INTEL_PT_CONTROL_STRUCTURE {
+    BOOLEAN                     IptEnabled;
+    INTEL_PT_OUTPUT_OPTIONS     *OutputOptions;
 
 } INTEL_PT_CONTROL_STRUCTURE;
 

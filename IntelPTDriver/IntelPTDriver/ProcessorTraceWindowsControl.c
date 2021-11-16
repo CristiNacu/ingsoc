@@ -147,6 +147,8 @@ PtwExecuteAndWaitPerCore(
             {
                 return STATUS_ACCESS_DENIED;
             }
+
+            for (unsigned kk = 0; kk < 0xffff; kk++);
         }
     }
     // TODO: Is sending an IPI a good implementation????
@@ -454,7 +456,9 @@ IptDpc(
 
     DEBUG_STOP();
     IptResetPmi();
-    IptResumeTrace();
+    IptResumeTrace(
+        gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
+    );
 }
 
 PRIVATE
@@ -465,6 +469,8 @@ IptPmiHandler(
 {
     DEBUG_PRINT("Pmi handler on ap %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
+    DEBUG_STOP();
+
     IptResetPmi();
 
 
@@ -523,6 +529,7 @@ PtwIpiPerCoreInit(
     
     NTSTATUS status;
     ULONG procnumber = KeGetCurrentProcessorNumber();
+    DEBUG_STOP();
 
     status = IptInitPerCore(
         &gIptPerCoreControl[procnumber]
@@ -584,6 +591,9 @@ PtwIpiPerCoreSetup(
     INTEL_PT_CONFIGURATION* config = (INTEL_PT_CONFIGURATION*)Context;
     //INTEL_PT_CONTROL_STRUCTURE controlStructure;
     NTSTATUS status;
+    PMIHANDLER newPmiHandler;
+
+    DEBUG_STOP();
 
     ULONG currentProcessorNumber = KeGetCurrentProcessorNumber();
 
@@ -599,7 +609,7 @@ PtwIpiPerCoreSetup(
 
     DEBUG_STOP();
 
-    PMIHANDLER newPmiHandler = IptPmiHandler;
+    newPmiHandler = IptPmiHandler;
 
     status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
     if (!NT_SUCCESS(status))
@@ -611,7 +621,9 @@ PtwIpiPerCoreSetup(
         DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
     }
 
-    IptEnableTrace();
+    IptEnableTrace(
+        gIptPerCoreControl[currentProcessorNumber].OutputOptions
+    );
     return;
 }
 
@@ -622,6 +634,10 @@ PtwIpcPerCoreDisable(
 )
 {
     UNREFERENCED_PARAMETER(Context);
-    IptDisableTrace();
+    IptDisableTrace(
+        gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
+    );
+    DEBUG_STOP();
+
     return;
 }

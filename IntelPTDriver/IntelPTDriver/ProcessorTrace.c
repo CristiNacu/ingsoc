@@ -5,6 +5,10 @@
 
 IptMemoryAllocationFunction gMemoryAllocation;
 
+#define IPT_POOL_TAG         'IPTP'
+#define DEFAULT_NUMBER_OF_TOPA_ENTRIES 10
+#define IptFlush() _mm_sfence();
+
 BOOLEAN
 IptTopaPmiReason(
 )
@@ -109,13 +113,13 @@ IptGetCapabilities(
 
 NTSTATUS
 IptEnableTrace(
-
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
 
     DEBUG_PRINT("Enabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
-
+    DEBUG_STOP();
     if (IptError())
     {
         IptClearError();
@@ -136,14 +140,19 @@ IptEnableTrace(
     else
     {
         DEBUG_PRINT("Enabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
-        return STATUS_SUCCESS;
     }
+
+    cpuOptions->RunningStatus = IPT_STATUS_ENABLED;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
 IptDisableTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
 )
 {
+    // TODO: Restore the old IPT state when disabling execution
+
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
     DEBUG_PRINT("Disabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
 
@@ -161,12 +170,17 @@ IptDisableTrace(
     else
     {
         DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
-        return STATUS_SUCCESS;
     }
+
+    IptFlush();
+    cpuOptions->RunningStatus = IPT_STATUS_DISABLED;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
-IptPauseTrace()
+IptPauseTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+)
 {
     NTSTATUS status = STATUS_SUCCESS;
 
@@ -181,7 +195,7 @@ IptPauseTrace()
     }
 
     if(IptEnabled())
-        status = IptDisableTrace();
+        status = IptDisableTrace(cpuOptions);
 
 
     return status;
@@ -189,12 +203,14 @@ IptPauseTrace()
 }
 
 NTSTATUS
-IptResumeTrace()
+IptResumeTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+)
 {
     NTSTATUS status = STATUS_SUCCESS;
     if (!IptEnabled())
     {
-        status = IptEnableTrace();
+        status = IptEnableTrace(cpuOptions);
     }
     return status;
 
@@ -281,74 +297,15 @@ IptValidateConfigurationRequest(
 
 NTSTATUS
 IptUnlinkFullBuffers(
-    TOPA_TABLE* Table,
+    INTEL_PT_OUTPUT_OPTIONS* Table,
     PVOID OldVaAddresses[],
     unsigned *WrittenAddresses
 )
 {
-    NTSTATUS status = STATUS_SUCCESS;
-    IA32_RTIT_STATUS_STRUCTURE ptStatus;
-    PtGetStatus(ptStatus);
-
-    unsigned long long bufferCount = (ptStatus.Fields.PacketByteCnt / PAGE_SIZE);
-    if (bufferCount > gFrequency)
-    {
-        // Means we have more than one ISR issued
-        //DEBUG_STOP();
-    }
-
-    unsigned crtBufferCount = Table->CurrentBufferOffset;
-    unsigned crtOldVaAddressesCount = 0;
-    // Unlink only our current frequency
-
-    do
-    {
-        if (Table->TopaTableBaseVa[crtBufferCount].END)
-            break;
-
-        PVOID newBufferVa;
-        PVOID newBufferPa;
-        PVOID oldBufferVa;
-
-        oldBufferVa = Table->VirtualTopaPagesAddresses[crtBufferCount];
-
-        gMemoryAllocation(
-            (size_t)(unsigned)PAGE_SIZE,
-            PAGE_SIZE,
-            &newBufferVa,
-            &newBufferPa
-        );
-        if (!newBufferVa || !newBufferPa)
-        {
-            DEBUG_PRINT("gMemoryAllocation returned error %x\n", status);
-            DEBUG_STOP();
-        }
-
-        OldVaAddresses[crtOldVaAddressesCount] = oldBufferVa;
-
-        // Save the page virtual address so that it can be mapped in user space
-        Table->VirtualTopaPagesAddresses[crtBufferCount] = newBufferVa;
-        // Set the topa entry to point at the current page
-        Table->TopaTableBaseVa[crtBufferCount].OutputRegionBasePhysicalAddress = ((unsigned long long)newBufferPa) >> 12;
-        
-        crtBufferCount++;
-        crtOldVaAddressesCount++;
-    } while (
-        crtBufferCount == 0 ||
-        (!Table->TopaTableBaseVa[crtBufferCount].END &&
-            !Table->TopaTableBaseVa[crtBufferCount - 1].INT)
-        );
-
-    if (Table->TopaTableBaseVa[crtBufferCount].END)
-    {
-        //DEBUG_PRINT("Wrapped around buffer\n");
-        crtBufferCount = 0;
-    }
-
-    *WrittenAddresses = crtOldVaAddressesCount;
-    Table->CurrentBufferOffset = crtBufferCount;
-
-    return status;
+    UNREFERENCED_PARAMETER(Table);
+    UNREFERENCED_PARAMETER(OldVaAddresses);
+    UNREFERENCED_PARAMETER(WrittenAddresses);
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 NTSTATUS
@@ -417,12 +374,11 @@ IptConfigureProcessorTrace(
 
     __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
     __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, OutputOptions->OutputMask.Raw);
-    __writemsr(IA32_RTIT_OUTPUT_BASE, OutputOptions->OutputBase);
+    __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)OutputOptions->TopaTablePa);
    
     return STATUS_SUCCESS;
 }
 
-#define DEFAULT_NUMBER_OF_TOPA_ENTRIES 10
 
 NTSTATUS
 IptInitTopaOutput(
@@ -430,7 +386,6 @@ IptInitTopaOutput(
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
-    TOPA_TABLE* topaTable;
     PVOID topaTablePa;
     TOPA_ENTRY* topaTableVa;
     PMDL mdl;
@@ -467,39 +422,26 @@ IptInitTopaOutput(
         return STATUS_TOO_MANY_LINKS;
     }
 
-
-    // Allocate topa table, an interface for the actual pointer to the topa
-    status = DuAllocateBuffer(
-        sizeof(TOPA_TABLE) + (Options->TopaEntries + 1) * sizeof(PVOID),
-        MmCached,
-        TRUE,
-        &topaTable,
-        NULL
-    );
-    if (!NT_SUCCESS(status) || !topaTable)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    // Is this required?
-    topaTable->VirtualTopaPagesAddresses =
-        (PVOID*)((unsigned long long)topaTable + sizeof(TOPA_TABLE));
-
     // Allocate the actual topa
-    status = DuAllocateBuffer(
+    topaTableVa = MmAllocateContiguousMemorySpecifyCache(
         (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
-        MmCached,
-        TRUE,
-        (PVOID)&topaTableVa,
-        &topaTablePa
+        lowAddress,
+        highAddress,
+        lowAddress,
+        MmCached
     );
-    if (!NT_SUCCESS(status) || !topaTableVa || !topaTablePa)
+    if (!topaTableVa)
     {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    topaTable->TopaTableBaseVa = (TOPA_ENTRY*)topaTableVa;
-    topaTable->TopaTableBasePa = (unsigned long long)topaTablePa;
+    RtlFillMemory(
+        topaTableVa,
+        (Options->TopaEntries + 1) * sizeof(TOPA_ENTRY),
+        0
+    );
+
+    topaTablePa = (PVOID)MmGetPhysicalAddress(topaTableVa).QuadPart;
     
     mdl = MmAllocatePagesForMdlEx(
         lowAddress,
@@ -524,6 +466,7 @@ IptInitTopaOutput(
         topaTableVa[i].INT = (i % gFrequency == 0) ? TRUE : FALSE;
         topaTableVa[i].STOP = FALSE;
         topaTableVa[i].Size = Size4K;
+
     }
 
     topaTableVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
@@ -531,42 +474,12 @@ IptInitTopaOutput(
     topaTableVa[Options->TopaEntries].INT = FALSE;
     topaTableVa[Options->TopaEntries].END = TRUE;
 
-    Options->TopaTable = topaTable;
     // Configure the trace to start at table 0 index 0 in the current ToPA
     Options->OutputMask.Raw = 0x7F;
-    Options->OutputBase = (unsigned long long)topaTablePa;
-    
-    return status;
-}
-
-NTSTATUS
-IptSwapTopaBuffer(
-    unsigned TableIndex,
-    TOPA_TABLE* TopaTable,
-    PVOID* OldBufferVa
-)
-{
-    NTSTATUS status = STATUS_SUCCESS;
-    PVOID bufferVa;
-    PVOID bufferPa;
-
-    if (!OldBufferVa)
-        return STATUS_INVALID_PARAMETER_3;
-
-    gMemoryAllocation(
-        PAGE_SIZE,
-        PAGE_SIZE,
-        &bufferVa,
-        &bufferPa
-    );
-    if (!bufferVa || !bufferPa)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    *OldBufferVa = TopaTable->VirtualTopaPagesAddresses[TableIndex];
-    TopaTable->TopaTableBaseVa[TableIndex].OutputRegionBasePhysicalAddress = ((ULONG64)bufferPa) >> 12;
-    TopaTable->VirtualTopaPagesAddresses[TableIndex] = bufferVa;
+    Options->TopaTablePa = (PVOID)topaTablePa;
+    Options->TopaTableVa = (PVOID)topaTableVa;
+    Options->RunningStatus = IPT_STATUS_INITIALIZED;
+    Options->TopaMdl = mdl;
 
     return status;
 }
@@ -592,7 +505,8 @@ IptInitSingleRegionOutput(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    Options->OutputBase = (unsigned long long)bufferPa;
+    Options->TopaTablePa = bufferPa;
+    Options->TopaTableVa = bufferVa;
     Options->OutputMask.Raw = 0;
     Options->OutputMask.Fields.MaskOrTableOffset = PAGE_SIZE - 1;
 
@@ -624,8 +538,27 @@ IptUninitOutputStructure(
     INTEL_PT_OUTPUT_OPTIONS* Options
 )
 {
-    UNREFERENCED_PARAMETER(Options);
-    return STATUS_NOT_IMPLEMENTED;
+    if (Options->OutputType == PtOutputTypeToPA)
+    {
+        MmFreePagesFromMdl(
+            Options->TopaMdl
+        );
+
+        ExFreePoolWithTag(
+            Options->TopaTablePa,
+            IPT_POOL_TAG
+        );
+    }
+    else
+    {
+        return STATUS_NOT_IMPLEMENTED;
+    }
+
+    ExFreePoolWithTag(
+        Options,
+        IPT_POOL_TAG
+    );
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -633,13 +566,48 @@ IptInitPerCore(
     INTEL_PT_CONTROL_STRUCTURE *ControlStructure
 )
 {
+    INTEL_PT_OUTPUT_OPTIONS* outputOptions;
+    NTSTATUS status;
+
     ControlStructure->IptEnabled = IptEnabled();
     if (ControlStructure->IptEnabled)
     {
         DEBUG_PRINT("IntelPt is already in use...\n");
     }
 
-    // TODO: How shold i handle the case where IPT is already enabled?
+    outputOptions = ExAllocatePoolWithTag(
+        NonPagedPool,
+        sizeof(INTEL_PT_OUTPUT_OPTIONS),
+        IPT_POOL_TAG
+    );
+    if (!outputOptions)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    outputOptions->TopaEntries = 10;
+
+    status = IptInitOutputStructure(
+        outputOptions
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return status;
+    }
+
+    if (IptEnabled())
+    {
+        status = IptDisableTrace(outputOptions);
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("PtDisableTrace returned status %X\n", status);
+            return status;
+        }
+        // TODO: If ipt is already in use, implement a mechanism to maintain the old state and revert it when IPT is disabled
+    }
+
+    ControlStructure->OutputOptions = outputOptions;
+
     return STATUS_SUCCESS;
 }
 
@@ -681,8 +649,6 @@ IptInit(
         }
     }
 
-    
-
     return status;
 }
 
@@ -708,7 +674,6 @@ IptSetup(
     UNREFERENCED_PARAMETER(ControlStructure);
 
     NTSTATUS status;
-    INTEL_PT_OUTPUT_OPTIONS *outputOptions;
     
 
     status = IptValidateConfigurationRequest(
@@ -719,39 +684,11 @@ IptSetup(
         return status;
     }
 
-    gMemoryAllocation(
-        sizeof(INTEL_PT_OUTPUT_OPTIONS),
-        0,
-        &outputOptions,
-        NULL
-    );
-    if (!outputOptions)
-        return STATUS_INSUFFICIENT_RESOURCES;
-
-    outputOptions->TopaEntries = 10;
-
-    status = IptInitOutputStructure(
-        outputOptions
-    );
-    if (!NT_SUCCESS(status))
-    {
-        return status;
-    }
-
-    if (ControlStructure->IptEnabled)
-    {
-        status = IptDisableTrace();
-        if (!NT_SUCCESS(status))
-        {
-            DEBUG_PRINT("PtDisableTrace returned status %X\n", status);
-            return status;
-        }
-    }
-
     status = IptConfigureProcessorTrace(
         FilterConfiguration,
-        outputOptions
+        ControlStructure->OutputOptions
     );
+
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -759,8 +696,6 @@ IptSetup(
     
     ULONG crtCpu = KeGetCurrentProcessorNumber();
     UNREFERENCED_PARAMETER(crtCpu);
-
-    ControlStructure->IptHandler = (PVOID)outputOptions;
 
     return status;
 

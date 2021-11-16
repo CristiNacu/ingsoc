@@ -57,39 +57,6 @@ typedef struct _TOPA_ENTRY {
     unsigned long long OutputRegionBasePhysicalAddress : 52;    // MAXPHYADDR-1:12
 } TOPA_ENTRY;
 
-typedef union _IA32_RTIT_OUTPUT_MASK_STRUCTURE {
-    struct {
-        // REMINDER: Lowest mask available is 128 -> last 7 bits are ALWAYS 1
-        unsigned long long MaskOrTableOffset : 32;      // 31:0
-        unsigned long long OutputOffset : 32;           // 64:32
-    } Fields;
-    unsigned long long Raw;
-} IA32_RTIT_OUTPUT_MASK_STRUCTURE;
-
-typedef enum _INTEL_PT_OUTPUT_TYPE {
-    PtOutputTypeSingleRegion,
-    PtOutputTypeToPA,
-    PtOutputTypeToPASingleRegion,
-    PtOutputTypeTraceTransportSubsystem,    // Unsupported?
-} INTEL_PT_OUTPUT_TYPE;
-
-typedef struct _TOPA_TABLE {
-    unsigned CurrentBufferOffset;
-    unsigned NumberOfTopaEntries;
-    PVOID* VirtualTopaPagesAddresses;
-    unsigned long long TopaTableBasePa;
-    TOPA_ENTRY* TopaTableBaseVa;
-} TOPA_TABLE;
-
-typedef struct _INTEL_PT_OUTPUT_OPTIONS {
-    INTEL_PT_OUTPUT_TYPE OutputType;
-    unsigned TopaEntries;
-    unsigned EntrySize;
-    unsigned long long OutputBase;
-    IA32_RTIT_OUTPUT_MASK_STRUCTURE OutputMask;
-    TOPA_TABLE* TopaTable;
-} INTEL_PT_OUTPUT_OPTIONS;
-
 // As described in Intel Manual Volume 4 Chapter 2 Table 2-2 pg 4630
 typedef union _IA32_RTIT_STATUS_STRUCTURE {
     struct {

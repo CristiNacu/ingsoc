@@ -23,18 +23,22 @@ IptSetup(
 
 NTSTATUS
 IptEnableTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
 );
 
 NTSTATUS
 IptDisableTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
 );
 
 NTSTATUS
 IptPauseTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
 );
 
 NTSTATUS
 IptResumeTrace(
+    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
 );
 
 NTSTATUS
