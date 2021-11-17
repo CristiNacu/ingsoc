@@ -9,6 +9,14 @@ IptMemoryAllocationFunction gMemoryAllocation;
 #define DEFAULT_NUMBER_OF_TOPA_ENTRIES 10
 #define IptFlush() _mm_sfence();
 
+NTSTATUS
+IptAlocateNewTopaBuffer(
+    unsigned                    EntriesCount,
+    TOPA_ENTRY* TopaTableVa,
+    PVOID                       NextTopaPa,
+    PMDL* Mdl
+);
+
 BOOLEAN
 IptTopaPmiReason(
 )
@@ -216,9 +224,55 @@ IptResumeTrace(
 
 }
 
-NTSTATUS IptUnlinkFullTopaBuffers()
+NTSTATUS 
+IptUnlinkFullTopaBuffers(
+    PMDL* Mdl,
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
+)
 {
-    return STATUS_NOT_IMPLEMENTED;
+    NTSTATUS status;
+
+    if (!Mdl)
+        return STATUS_INVALID_PARAMETER_1;
+
+    if (!CpuOptions)
+        return STATUS_INVALID_PARAMETER_2;
+
+    PMDL mdl;
+    mdl = CpuOptions->TopaMdl;
+
+    char* buff = (char*)MmMapLockedPagesSpecifyCache(
+        mdl,
+        KernelMode,
+        MmCached,
+        NULL,
+        FALSE,
+        NormalPagePriority
+    );
+
+    *Mdl = mdl;
+
+    unsigned buffSize = MmGetMdlByteCount(mdl);
+
+    for (unsigned i = 0; i < buffSize; i++)
+    {
+        DEBUG_PRINT("%x", buff[i]);
+        if (i != 0 && i % 10 == 0)
+            DEBUG_PRINT("\n%d: ", (i/10));
+    }
+
+    status = IptAlocateNewTopaBuffer(
+        CpuOptions->TopaEntries,
+        CpuOptions->TopaTableVa,
+        CpuOptions->TopaTablePa,
+        &(PMDL)CpuOptions->TopaMdl
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("IptAlocateNewTopaBuffer failed with status %X\n", status);
+    }
+
+    return status;
 }
 
 BOOLEAN IptError()
@@ -379,6 +433,55 @@ IptConfigureProcessorTrace(
     return STATUS_SUCCESS;
 }
 
+NTSTATUS
+IptAlocateNewTopaBuffer(
+    unsigned                    EntriesCount,
+    TOPA_ENTRY*                 TopaTableVa,
+    PVOID                       NextTopaPa,
+    PMDL*                       Mdl
+)
+{
+    PMDL mdl;
+    PPFN_NUMBER pfnArray;
+    PHYSICAL_ADDRESS lowAddress = { .QuadPart = 0 };
+    PHYSICAL_ADDRESS highAddress = { .QuadPart = -1L };
+
+    if (!Mdl)
+        return STATUS_INVALID_PARAMETER_4;
+
+    mdl = MmAllocatePagesForMdlEx(
+        lowAddress,
+        highAddress,
+        lowAddress,
+        EntriesCount * PAGE_SIZE,
+        MmCached,
+        MM_ALLOCATE_FULLY_REQUIRED
+    );
+    if (mdl == NULL)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    pfnArray = MmGetMdlPfnArray(mdl);
+
+
+    for (unsigned i = 0; i < EntriesCount; i++)
+    {
+        TopaTableVa[i].OutputRegionBasePhysicalAddress = pfnArray[i];
+        TopaTableVa[i].END = FALSE;
+        TopaTableVa[i].INT = (i == (EntriesCount - 1)) ? TRUE : FALSE;
+        TopaTableVa[i].STOP = FALSE;
+        TopaTableVa[i].Size = Size4K;
+    }
+
+    TopaTableVa[EntriesCount].OutputRegionBasePhysicalAddress = ((unsigned long long)NextTopaPa) >> 12;
+    TopaTableVa[EntriesCount].STOP = FALSE;
+    TopaTableVa[EntriesCount].INT = FALSE;
+    TopaTableVa[EntriesCount].END = TRUE;
+    *Mdl = mdl;
+
+    return STATUS_SUCCESS;
+}
 
 NTSTATUS
 IptInitTopaOutput(
@@ -386,10 +489,8 @@ IptInitTopaOutput(
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
-    PVOID topaTablePa;
     TOPA_ENTRY* topaTableVa;
-    PMDL mdl;
-    PPFN_NUMBER pfnArray;
+
 
     PHYSICAL_ADDRESS lowAddress = { .QuadPart = 0 };
     PHYSICAL_ADDRESS highAddress = { .QuadPart = -1L };
@@ -441,45 +542,21 @@ IptInitTopaOutput(
         0
     );
 
-    topaTablePa = (PVOID)MmGetPhysicalAddress(topaTableVa).QuadPart;
-    
-    mdl = MmAllocatePagesForMdlEx(
-        lowAddress,
-        highAddress,
-        lowAddress,
-        Options->TopaEntries * PAGE_SIZE,
-        MmCached,
-        MM_ALLOCATE_FULLY_REQUIRED
+    Options->TopaTablePa = (PVOID)MmGetPhysicalAddress(topaTableVa).QuadPart;
+    Options->TopaTableVa = (PVOID)topaTableVa;
+
+    status = IptAlocateNewTopaBuffer(
+        Options->TopaEntries,
+        topaTableVa,
+        Options->TopaTablePa,
+        &(PMDL)Options->TopaMdl
     );
-    if (mdl == NULL)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    pfnArray = MmGetMdlPfnArray(mdl);
-
-
-    for (unsigned i = 0; i < Options->TopaEntries; i++)
-    {
-        topaTableVa[i].OutputRegionBasePhysicalAddress = pfnArray[i];
-        topaTableVa[i].END = FALSE;
-        topaTableVa[i].INT = (i % gFrequency == 0) ? TRUE : FALSE;
-        topaTableVa[i].STOP = FALSE;
-        topaTableVa[i].Size = Size4K;
-
-    }
-
-    topaTableVa[Options->TopaEntries].OutputRegionBasePhysicalAddress = ((unsigned long long)topaTablePa) >> 12;
-    topaTableVa[Options->TopaEntries].STOP = FALSE;
-    topaTableVa[Options->TopaEntries].INT = FALSE;
-    topaTableVa[Options->TopaEntries].END = TRUE;
+    if (!NT_SUCCESS(status))
+        return status;
 
     // Configure the trace to start at table 0 index 0 in the current ToPA
     Options->OutputMask.Raw = 0x7F;
-    Options->TopaTablePa = (PVOID)topaTablePa;
-    Options->TopaTableVa = (PVOID)topaTableVa;
     Options->RunningStatus = IPT_STATUS_INITIALIZED;
-    Options->TopaMdl = mdl;
 
     return status;
 }

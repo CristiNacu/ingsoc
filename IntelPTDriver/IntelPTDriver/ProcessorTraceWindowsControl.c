@@ -428,58 +428,38 @@ IptDpc(
     UNREFERENCED_PARAMETER(DeferredContext);
     UNREFERENCED_PARAMETER(SystemArgument1);
     UNREFERENCED_PARAMETER(SystemArgument2);
+    DEBUG_STOP();
 
     NTSTATUS status;
     //unsigned WrittenAddresses = 0;
     //PVOID* oldVaAddresses;
 
-    status = IptUnlinkFullTopaBuffers();
+    PMDL mdl;
+
+    status = IptUnlinkFullTopaBuffers(
+        &mdl,
+        gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("IptUnlinkFullTopaBuffers error %X\n", status);
+        return;
+    }
+
     IptResetPmi();
 
+    status = DuEnqueueElement(
+        gQueueHead,
+        (PVOID)mdl
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuEnqueueElements error %X\n", status);
+        return;
+    }
 
-    //oldVaAddresses = ExAllocatePoolWithTag(
-    //        NonPagedPool, 
-    //        sizeof(PVOID) * (gFrequency + 1), 
-    //        PT_POOL_TAG
-    //    );
-    //if (!oldVaAddresses)
-    //{
-    //    DEBUG_PRINT("could not allocate oldVaAddresses buffer\n");
-    //    return;
-    //}
+    KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
 
-    //status = IptUnlinkFullTopaBuffers(
-    //    gTopa,
-    //    oldVaAddresses,
-    //    &WrittenAddresses
-    //);
-    //if (!NT_SUCCESS(status))
-    //{
-    //    DEBUG_PRINT("IptUnlinkFullTopaBuffers error %X\n", status);
-    //    return;
-    //}
-
-    //if (gFirstPage)
-    //{
-    //    gFirstPage = FALSE;
-    //    DEBUG_PRINT("FIRST PAGE BUFFER VA %p\n", oldVaAddresses[0]);
-    //}
-
-    //status = DuEnqueueElements(
-    //    gQueueHead,
-    //    WrittenAddresses,
-    //    oldVaAddresses
-    //);
-    //if (!NT_SUCCESS(status))
-    //{
-    //    DEBUG_PRINT("DuEnqueueElements error %X\n", status);
-    //    return;
-    //}
-
-    //KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
-    //ExFreePoolWithTag(oldVaAddresses, PT_POOL_TAG);
-
-    DEBUG_STOP();
     IptResetPmi();
     IptResumeTrace(
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
@@ -492,24 +472,17 @@ IptPmiHandler(
     PKTRAP_FRAME pTrapFrame
 )
 {
+    PKDPC pProcDpc;
     DEBUG_PRINT("Pmi handler on ap %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
     DEBUG_STOP();
 
-    IptResetPmi();
-
-
-    //PKDPC pProcDpc;
-
- /*   IptPauseTrace();
-
     if (!IptTopaPmiReason())
     {
-        IptResumeTrace();
+        IptResetPmi();
         return;
     }
-
-
+    
     pProcDpc = (PKDPC)ExAllocatePoolWithTag(
         NonPagedPool,
         sizeof(KDPC),
@@ -536,10 +509,7 @@ IptPmiHandler(
         pProcDpc,
         (PVOID)KeGetCurrentProcessorNumber(),
         NULL
-    );*/
-
-
-    return;
+    );
 }
 
 
