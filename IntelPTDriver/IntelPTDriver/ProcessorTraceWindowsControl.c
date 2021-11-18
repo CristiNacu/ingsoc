@@ -215,6 +215,45 @@ PtwUninit()
 }
 
 typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
+#define IA32_APIC_BASE                      0x1B
+#define IA32_LVT_REGISTER                   0x834
+
+typedef union _IA32_APIC_BASE_STRUCTURE {
+    struct {
+        unsigned long long Reserved0 : 8;
+        unsigned long long BSPFlag : 1;
+        unsigned long long Reserved1 : 1;
+        unsigned long long EnableX2ApicMode : 1;
+        unsigned long long ApicGlobalEnbale : 1;
+        unsigned long long ApicBase : 52;
+    } Values;
+    unsigned long long Raw;
+} IA32_APIC_BASE_STRUCTURE;
+
+typedef union _PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE {
+    struct {
+        unsigned long Vector : 8;
+        unsigned long DeliveryMode : 3;
+        unsigned long Reserved0 : 1;
+        unsigned long DeliveryStatus : 1;
+        unsigned long Reserved1 : 3;
+        unsigned long Mask : 1;
+        unsigned long Raw : 15;
+    } Values;
+    unsigned long Raw;
+} PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE;
+
+typedef 
+struct 
+_INTERRUPT_DESCRIPTOR_STRUCTURE {
+    UINT16 offset_1;        // offset bits 0..15
+    UINT16 selector;        // a code segment selector in GDT or LDT
+    UINT8  ist;             // bits 0..2 holds Interrupt Stack Table offset, rest of bits zero.
+    UINT8  type_attributes; // gate type, dpl, and p fields
+    UINT16 offset_2;        // offset bits 16..31
+    UINT32 offset_3;        // offset bits 32..63
+    UINT32 zero;            // reserved
+} INTERRUPT_DESCRIPTOR_STRUCTURE;
 
 PRIVATE
 NTSTATUS 
@@ -227,6 +266,27 @@ PtwSetup(
     PMIHANDLER newPmiHandler;
     NTSTATUS status;
 
+
+    IA32_APIC_BASE_STRUCTURE apicBase;
+    apicBase.Raw = __readmsr(IA32_APIC_BASE);
+
+    if (apicBase.Values.EnableX2ApicMode)
+    {
+        DEBUG_PRINT("X2 Apic mode\n");
+        PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+
+        lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
+        DEBUG_PRINT("LVT VECTOR BEFORE %X\n", lvt.Raw);
+
+        INTERRUPT_DESCRIPTOR_STRUCTURE* idtBase;
+
+        __sidt(&idtBase);
+        DEBUG_PRINT("OFFSET 1 %X OFFSET 2 %X OFFSET3 %X\n",
+            idtBase[lvt.Values.Vector].offset_1,
+            idtBase[lvt.Values.Vector].offset_2, 
+            idtBase[lvt.Values.Vector].offset_3);
+    }
+
     newPmiHandler = IptPmiHandler;
     status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
     if (!NT_SUCCESS(status))
@@ -236,6 +296,18 @@ PtwSetup(
     else
     {
         DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
+    }
+
+    apicBase.Raw = __readmsr(IA32_APIC_BASE);
+
+    if (apicBase.Values.EnableX2ApicMode)
+    {
+        DEBUG_PRINT("X2 Apic mode\n");
+        PERFORMANCE_MONITOR_COUNTER_LVT_STRUCTURE lvt;
+
+        lvt.Raw = (unsigned long)__readmsr(IA32_LVT_REGISTER);
+        DEBUG_PRINT("LVT VECTOR AFTER %X\n", lvt.Raw);
+
     }
 
 
@@ -483,6 +555,9 @@ IptPmiHandler(
         IptResetPmi();
         return;
     }
+
+    if (!gProcessId)
+        DEBUG_STOP();
     
     pProcDpc = (PKDPC)ExAllocatePoolWithTag(
         NonPagedPool,
