@@ -238,28 +238,6 @@ IptUnlinkFullTopaBuffers(
     if (!CpuOptions)
         return STATUS_INVALID_PARAMETER_2;
 
-    PMDL mdl;
-    mdl = CpuOptions->TopaMdl;
-
-    char* buff = (char*)MmMapLockedPagesSpecifyCache(
-        mdl,
-        KernelMode,
-        MmCached,
-        NULL,
-        FALSE,
-        NormalPagePriority
-    );
-
-    *Mdl = mdl;
-
-    unsigned buffSize = MmGetMdlByteCount(mdl);
-
-    for (unsigned i = 0; i < buffSize; i++)
-    {
-        DEBUG_PRINT("%x", buff[i]);
-        if (i != 0 && i % 10 == 0)
-            DEBUG_PRINT("\n%d: ", (i/10));
-    }
 
     status = IptAlocateNewTopaBuffer(
         CpuOptions->TopaEntries,
@@ -271,6 +249,7 @@ IptUnlinkFullTopaBuffers(
     {
         DEBUG_PRINT("IptAlocateNewTopaBuffer failed with status %X\n", status);
     }
+    *Mdl = CpuOptions->TopaMdl;
 
     return status;
 }
@@ -461,6 +440,26 @@ IptAlocateNewTopaBuffer(
     {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
+
+    char* buff = (char*)MmMapLockedPagesSpecifyCache(
+        mdl,
+        KernelMode,
+        MmCached,
+        NULL,
+        FALSE,
+        NormalPagePriority
+    );
+
+    RtlFillBytes(
+        buff,
+        EntriesCount * PAGE_SIZE,
+        0
+    );
+
+    MmUnmapLockedPages(
+        buff,
+        mdl
+    );
 
     pfnArray = MmGetMdlPfnArray(mdl);
 

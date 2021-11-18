@@ -330,6 +330,8 @@ PtwHookThreadCreation(
         return;
     }
 
+    gProcessId = ProcessId;
+
     DEBUG_PRINT("STARTED TRACING\n");
 
     return;
@@ -346,6 +348,7 @@ PtwHookProcessExit(
 {
     UNREFERENCED_PARAMETER(Process);
     NTSTATUS status;
+    DEBUG_STOP();
 
     if (CreateInfo)
         return;
@@ -428,7 +431,6 @@ IptDpc(
     UNREFERENCED_PARAMETER(DeferredContext);
     UNREFERENCED_PARAMETER(SystemArgument1);
     UNREFERENCED_PARAMETER(SystemArgument2);
-    DEBUG_STOP();
 
     NTSTATUS status;
     //unsigned WrittenAddresses = 0;
@@ -475,7 +477,6 @@ IptPmiHandler(
     PKDPC pProcDpc;
     DEBUG_PRINT("Pmi handler on ap %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
-    DEBUG_STOP();
 
     if (!IptTopaPmiReason())
     {
