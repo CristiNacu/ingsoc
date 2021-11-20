@@ -26,7 +26,7 @@ typedef struct _PER_CORE_SYNC_STRUCTURE {
 
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreInit;
 GENERIC_PER_CORE_SYNC_ROUTINE PtwIpiPerCoreSetup;
-GENERIC_PER_CORE_SYNC_ROUTINE PtwIpcPerCoreDisable;
+GENERIC_PER_CORE_SYNC_ROUTINE PtwDpcPerCoreDisable;
 
 PRIVATE
 VOID
@@ -246,7 +246,7 @@ PUBLIC
 NTSTATUS 
 PtwDisable()
 {
-    return PtwExecuteAndWaitPerCore(PtwIpcPerCoreDisable, IptPerCoreExecutionLevelDpc, NULL);
+    return PtwExecuteAndWaitPerCore(PtwDpcPerCoreDisable, IptPerCoreExecutionLevelDpc, NULL);
 }
 
 PUBLIC
@@ -348,7 +348,6 @@ PtwHookProcessExit(
 {
     UNREFERENCED_PARAMETER(Process);
     NTSTATUS status;
-    DEBUG_STOP();
 
     if (CreateInfo)
         return;
@@ -437,6 +436,7 @@ IptDpc(
     //PVOID* oldVaAddresses;
 
     PMDL mdl;
+    DEBUG_PRINT(">>> DPC ON AP %d\n", KeGetCurrentProcessorNumber());
 
     status = IptUnlinkFullTopaBuffers(
         &mdl,
@@ -448,8 +448,6 @@ IptDpc(
         return;
     }
 
-    IptResetPmi();
-
     status = DuEnqueueElement(
         gQueueHead,
         (PVOID)mdl
@@ -457,10 +455,11 @@ IptDpc(
     if (!NT_SUCCESS(status))
     {
         DEBUG_PRINT("DuEnqueueElements error %X\n", status);
-        return;
     }
-
-    KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
+    else
+    {
+        KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
+    }
 
     IptResetPmi();
     IptResumeTrace(
@@ -475,7 +474,7 @@ IptPmiHandler(
 )
 {
     PKDPC pProcDpc;
-    DEBUG_PRINT("Pmi handler on ap %d\n", KeGetCurrentProcessorNumber());
+    DEBUG_PRINT(">>> PMI ON AP %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
 
     if (!IptTopaPmiReason())
@@ -483,6 +482,9 @@ IptPmiHandler(
         IptResetPmi();
         return;
     }
+
+    DEBUG_PRINT(">>> PAUSING TRACE ON AP %d\n", KeGetCurrentProcessorNumber());
+    IptPauseTrace(gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions);
     
     pProcDpc = (PKDPC)ExAllocatePoolWithTag(
         NonPagedPool,
@@ -609,14 +611,29 @@ PtwIpiPerCoreSetup(
 
 PRIVATE
 void
-PtwIpcPerCoreDisable(
+PtwDpcPerCoreDisable(
     _In_ PVOID Context
 )
 {
     UNREFERENCED_PARAMETER(Context);
+    PMDL mdl;
+    NTSTATUS status;
+
     IptDisableTrace(
+        &mdl,
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
     );
+
+    status = DuEnqueueElement(
+        gQueueHead,
+        (PVOID)mdl
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuEnqueueElements error %X\n", status);
+    }
+
+
     DEBUG_STOP();
 
     return;

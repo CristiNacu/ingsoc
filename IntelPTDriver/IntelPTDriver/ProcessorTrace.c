@@ -121,13 +121,13 @@ IptGetCapabilities(
 
 NTSTATUS
 IptEnableTrace(
-    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 )
 {
     IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
 
     DEBUG_PRINT("Enabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
-    DEBUG_STOP();
+
     if (IptError())
     {
         IptClearError();
@@ -150,44 +150,45 @@ IptEnableTrace(
         DEBUG_PRINT("Enabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
     }
 
-    cpuOptions->RunningStatus = IPT_STATUS_ENABLED;
+    CpuOptions->RunningStatus = IPT_STATUS_ENABLED;
     return STATUS_SUCCESS;
+}
+
+void
+IptClearTraceEn(
+)
+{
+    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
+    ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
+    ia32RtitCtlMsrShadow.Fields.TraceEn = FALSE;
+    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
 }
 
 NTSTATUS
 IptDisableTrace(
-    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+    PMDL *Mdl,
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 )
 {
+    DEBUG_PRINT("Disabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
+    IptClearTraceEn();
+    DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
+    IptFlush();
+
+    if(Mdl)
+        *Mdl = CpuOptions->TopaMdl;
+    
+    CpuOptions->RunningStatus = IPT_STATUS_DISABLED;
+
     // TODO: Restore the old IPT state when disabling execution
 
-    IA32_RTIT_CTL_STRUCTURE ia32RtitCtlMsrShadow;
-    DEBUG_PRINT("Disabling trace on cpu %d\n", KeGetCurrentProcessorNumber());
 
-    ia32RtitCtlMsrShadow.Raw = __readmsr(IA32_RTIT_CTL);
-    ia32RtitCtlMsrShadow.Fields.TraceEn = FALSE;
-
-    __writemsr(IA32_RTIT_CTL, ia32RtitCtlMsrShadow.Raw);
-
-    if (IptError() || !IptEnabled())
-    {
-        DEBUG_PRINT("Disabling trace on cpu %d failed\n", KeGetCurrentProcessorNumber());
-        DEBUG_STOP();
-        return STATUS_UNSUCCESSFUL;
-    }
-    else
-    {
-        DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
-    }
-
-    IptFlush();
-    cpuOptions->RunningStatus = IPT_STATUS_DISABLED;
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 IptPauseTrace(
-    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
@@ -202,9 +203,10 @@ IptPauseTrace(
         }
     }
 
-    if(IptEnabled())
-        status = IptDisableTrace(cpuOptions);
+    if (IptEnabled())
+        IptClearTraceEn();
 
+    CpuOptions->RunningStatus = IPT_STATUS_PAUSED;
 
     return status;
 
@@ -212,13 +214,13 @@ IptPauseTrace(
 
 NTSTATUS
 IptResumeTrace(
-    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 )
 {
     NTSTATUS status = STATUS_SUCCESS;
     if (!IptEnabled())
     {
-        status = IptEnableTrace(cpuOptions);
+        status = IptEnableTrace(CpuOptions);
     }
     return status;
 
@@ -230,7 +232,12 @@ IptUnlinkFullTopaBuffers(
     INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 )
 {
+    if (CpuOptions->RunningStatus == IPT_STATUS_ENABLED)
+        return STATUS_CANNOT_MAKE;
+
+    DEBUG_PRINT(">>> UNLINKING ON AP %d\n", KeGetCurrentProcessorNumber());
     NTSTATUS status;
+    PMDL mdl;
 
     if (!Mdl)
         return STATUS_INVALID_PARAMETER_1;
@@ -238,6 +245,9 @@ IptUnlinkFullTopaBuffers(
     if (!CpuOptions)
         return STATUS_INVALID_PARAMETER_2;
 
+
+    mdl = CpuOptions->TopaMdl;
+    *Mdl = CpuOptions->TopaMdl;
 
     status = IptAlocateNewTopaBuffer(
         CpuOptions->TopaEntries,
@@ -249,7 +259,12 @@ IptUnlinkFullTopaBuffers(
     {
         DEBUG_PRINT("IptAlocateNewTopaBuffer failed with status %X\n", status);
     }
-    *Mdl = CpuOptions->TopaMdl;
+
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
+    PtGetStatus(ptStatus);
+
+    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, CpuOptions->OutputMask.Raw);
+    __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
 
     return status;
 }
@@ -326,19 +341,6 @@ IptValidateConfigurationRequest(
             return STATUS_NOT_SUPPORTED;
 
     return STATUS_SUCCESS;
-}
-
-NTSTATUS
-IptUnlinkFullBuffers(
-    INTEL_PT_OUTPUT_OPTIONS* Table,
-    PVOID OldVaAddresses[],
-    unsigned *WrittenAddresses
-)
-{
-    UNREFERENCED_PARAMETER(Table);
-    UNREFERENCED_PARAMETER(OldVaAddresses);
-    UNREFERENCED_PARAMETER(WrittenAddresses);
-    return STATUS_NOT_IMPLEMENTED;
 }
 
 NTSTATUS
@@ -673,7 +675,7 @@ IptInitPerCore(
 
     if (IptEnabled())
     {
-        status = IptDisableTrace(outputOptions);
+        status = IptDisableTrace(NULL, outputOptions);
         if (!NT_SUCCESS(status))
         {
             DEBUG_PRINT("PtDisableTrace returned status %X\n", status);

@@ -28,7 +28,8 @@ IptEnableTrace(
 
 NTSTATUS
 IptDisableTrace(
-    INTEL_PT_OUTPUT_OPTIONS* cpuOptions
+    PMDL* Mdl,
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 );
 
 NTSTATUS
