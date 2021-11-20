@@ -78,6 +78,7 @@ typedef VOID(*PMIHANDLER)(PKTRAP_FRAME TrapFrame);
 BOOLEAN gFirstPage = TRUE;
 WCHAR* ExecutableName = L"TracedApp.exe";
 HANDLE gProcessId = 0;
+BOOLEAN gThreadHoodked = FALSE;
 INTEL_PT_CONTROL_STRUCTURE* gIptPerCoreControl;
 
 
@@ -165,7 +166,6 @@ PtwExecuteAndWaitPerCore(
     {
         while (syncStructure.DpcCounter != numberOfCores);
         DEBUG_PRINT("Execution DPC finished successfully\n");
-        DEBUG_STOP();
     }
     else
         while (syncStructure.IpiCounter != numberOfCores);
@@ -202,7 +202,16 @@ PtwInit()
         return status;
     }
 
-    //DEBUG_STOP();
+    status = DuQueueInit(
+        &gQueueHead,
+        TRUE
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_STOP();
+        return status;
+    }
+
 
     return status;
 }
@@ -222,8 +231,6 @@ PtwSetup(
     INTEL_PT_CONFIGURATION *Config
 )
 {
-
-    DEBUG_STOP();
     PMIHANDLER newPmiHandler;
     NTSTATUS status;
 
@@ -290,7 +297,10 @@ PtwHookThreadCreation(
     if (!Create)
         return; // Destul de rau
 
-    //DEBUG_STOP();
+    if (gThreadHoodked)
+        return;
+
+    gThreadHoodked = TRUE;
 
 
     unsigned long long  cr3 = __readcr3() & (~(PAGE_SIZE - 1));
@@ -330,8 +340,6 @@ PtwHookThreadCreation(
         return;
     }
 
-    gProcessId = ProcessId;
-
     DEBUG_PRINT("STARTED TRACING\n");
 
     return;
@@ -358,14 +366,18 @@ PtwHookProcessExit(
     if (ProcessId != gProcessId)
         return;
 
-    //DEBUG_STOP();
 
     status = PsRemoveCreateThreadNotifyRoutine(
         PtwHookThreadCreation
     );
 
+
+
     PtwDisable();
+    
     gProcessId = 0;
+    gThreadHoodked = FALSE;
+
 
     return;
 }
@@ -391,7 +403,6 @@ PtwHookImageLoad(
         goto cleanup;
     }
 
-    //DEBUG_STOP();
     gProcessId = ProcessId;
 
     status = PsSetCreateThreadNotifyRoutineEx(
@@ -527,7 +538,6 @@ PtwIpiPerCoreInit(
     
     NTSTATUS status;
     ULONG procnumber = KeGetCurrentProcessorNumber();
-    DEBUG_STOP();
 
     status = IptInitPerCore(
         &gIptPerCoreControl[procnumber]
@@ -589,7 +599,6 @@ PtwIpiPerCoreSetup(
     //INTEL_PT_CONTROL_STRUCTURE controlStructure;
     NTSTATUS status;
 
-    DEBUG_STOP();
 
     ULONG currentProcessorNumber = KeGetCurrentProcessorNumber();
 
@@ -632,9 +641,6 @@ PtwDpcPerCoreDisable(
     {
         DEBUG_PRINT("DuEnqueueElements error %X\n", status);
     }
-
-
-    DEBUG_STOP();
 
     return;
 }
