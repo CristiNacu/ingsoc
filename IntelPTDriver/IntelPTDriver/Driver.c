@@ -1,6 +1,5 @@
 #include "DriverCommon.h"
 #include "Device.h"
-#include "Communication.h"
 #include "Debug.h"
 #include "ProcessorTrace.h"
 #include "ProcessorTraceWindowsCommands.h"

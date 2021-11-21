@@ -48,12 +48,6 @@
     <ClCompile Include="ProcessorTrace.c">
       <Filter>Source Files\IntelProcessorTrace</Filter>
     </ClCompile>
-    <ClCompile Include="Communication.c">
-      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
-    </ClCompile>
-    <ClCompile Include="CommunicationCallbacks.c">
-      <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
-    </ClCompile>
     <ClCompile Include="Device.c">
       <Filter>Source Files\PlatformConnector\ProcessorTraceWindows</Filter>
     </ClCompile>
@@ -85,12 +79,6 @@
     </ClInclude>
     <ClInclude Include="ProcessorTraceShared.h">
       <Filter>Header Files\IntelProcessorTrace</Filter>
-    </ClInclude>
-    <ClInclude Include="Communication.h">
-      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
-    </ClInclude>
-    <ClInclude Include="CommunicationCallbacks.h">
-      <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>
     </ClInclude>
     <ClInclude Include="Device.h">
       <Filter>Header Files\PlatformConnector\ProcessorTraceWindows</Filter>

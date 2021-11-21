@@ -371,13 +371,22 @@ PtwHookProcessExit(
         PtwHookThreadCreation
     );
 
-
+    PMIHANDLER oldHandler;
+    oldHandler = 0;
+    status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&oldHandler);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("HalSetSystemInformation returned status %X\n", status);
+    }
+    else
+    {
+        DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
+    }
 
     PtwDisable();
     
     gProcessId = 0;
     gThreadHoodked = FALSE;
-
 
     return;
 }
@@ -615,6 +624,7 @@ PtwIpiPerCoreSetup(
     IptEnableTrace(
         gIptPerCoreControl[currentProcessorNumber].OutputOptions
     );
+
     return;
 }
 
@@ -627,6 +637,14 @@ PtwDpcPerCoreDisable(
     UNREFERENCED_PARAMETER(Context);
     PMDL mdl;
     NTSTATUS status;
+
+    if (KeGetCurrentNodeNumber == 0)
+    {
+        status = PsSetCreateProcessNotifyRoutineEx(
+            PtwHookProcessExit,
+            TRUE
+        );
+    }
 
     IptDisableTrace(
         &mdl,

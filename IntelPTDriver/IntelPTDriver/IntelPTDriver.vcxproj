@@ -155,8 +155,6 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Communication.c" />
-    <ClCompile Include="CommunicationCallbacks.c" />
     <ClCompile Include="Device.c" />
     <ClCompile Include="Driver.c" />
     <ClCompile Include="ProcessorTrace.c" />
@@ -166,8 +164,6 @@
     <ClCompile Include="ProcessorTraceWindowsControl.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Communication.h" />
-    <ClInclude Include="CommunicationCallbacks.h" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="DriverCommon.h" />
