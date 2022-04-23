@@ -10,7 +10,7 @@ IptMemoryAllocationFunction gMemoryAllocation;
 #define IptFlush() _mm_sfence();
 
 NTSTATUS
-IptAlocateNewTopaBuffer(
+IptAllocateNewTopaBuffer(
     unsigned                    EntriesCount,
     TOPA_ENTRY* TopaTableVa,
     PVOID                       NextTopaPa,
@@ -175,6 +175,8 @@ IptDisableTrace(
     DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
     IptFlush();
 
+
+
     if(Mdl)
         *Mdl = CpuOptions->TopaMdl;
     
@@ -229,14 +231,15 @@ IptResumeTrace(
 NTSTATUS 
 IptUnlinkFullTopaBuffers(
     PMDL* Mdl,
-    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions,
+    BOOLEAN AllocateNewTopa
 )
 {
     if (CpuOptions->RunningStatus == IPT_STATUS_ENABLED)
         return STATUS_CANNOT_MAKE;
 
     DEBUG_PRINT(">>> UNLINKING ON AP %d\n", KeGetCurrentProcessorNumber());
-    NTSTATUS status;
+    NTSTATUS status = STATUS_SUCCESS;
     PMDL mdl;
 
     if (!Mdl)
@@ -248,24 +251,25 @@ IptUnlinkFullTopaBuffers(
 
     mdl = CpuOptions->TopaMdl;
     *Mdl = CpuOptions->TopaMdl;
-
-    status = IptAlocateNewTopaBuffer(
-        CpuOptions->TopaEntries,
-        CpuOptions->TopaTableVa,
-        CpuOptions->TopaTablePa,
-        &(PMDL)CpuOptions->TopaMdl
-    );
-    if (!NT_SUCCESS(status))
+    if (AllocateNewTopa)
     {
-        DEBUG_PRINT("IptAlocateNewTopaBuffer failed with status %X\n", status);
+        status = IptAllocateNewTopaBuffer(
+            CpuOptions->TopaEntries,
+            CpuOptions->TopaTableVa,
+            CpuOptions->TopaTablePa,
+            &(PMDL)CpuOptions->TopaMdl
+        );
+        if (!NT_SUCCESS(status))
+        {
+            DEBUG_PRINT("IptAlocateNewTopaBuffer failed with status %X\n", status);
+        }
+
+        IA32_RTIT_STATUS_STRUCTURE ptStatus;
+        PtGetStatus(ptStatus);
+
+        __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, CpuOptions->OutputMask.Raw);
+        __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
     }
-
-    IA32_RTIT_STATUS_STRUCTURE ptStatus;
-    PtGetStatus(ptStatus);
-
-    __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, CpuOptions->OutputMask.Raw);
-    __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
-
     return status;
 }
 
@@ -415,7 +419,7 @@ IptConfigureProcessorTrace(
 }
 
 NTSTATUS
-IptAlocateNewTopaBuffer(
+IptAllocateNewTopaBuffer(
     unsigned                    EntriesCount,
     TOPA_ENTRY*                 TopaTableVa,
     PVOID                       NextTopaPa,
@@ -546,7 +550,7 @@ IptInitTopaOutput(
     Options->TopaTablePa = (PVOID)MmGetPhysicalAddress(topaTableVa).QuadPart;
     Options->TopaTableVa = (PVOID)topaTableVa;
 
-    status = IptAlocateNewTopaBuffer(
+    status = IptAllocateNewTopaBuffer(
         Options->TopaEntries,
         topaTableVa,
         Options->TopaTablePa,

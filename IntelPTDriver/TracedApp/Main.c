@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
+#include <intrin.h>
 
 DWORD WINAPI ThreadProc(
     _In_ LPVOID lpParameter
@@ -10,6 +11,8 @@ DWORD WINAPI ThreadProc(
 
 void main()
 {
+    _ptwrite64(0xFFFFFFFFFFFFFFFF);
+    
     //for (int i = 0; i < 3; i++)
     //{
     //    CreateThread(
@@ -21,11 +24,11 @@ void main()
     //        NULL
     //    );
     //}
-    for (unsigned i = 0; i < 0xff; i++)
-    {
-        YieldProcessor();
-        printf_s("Running on AP %d\n", GetCurrentProcessorNumber());
-     }
+    //for (unsigned i = 0; i < 0xff; i++)
+    //{
+    //    YieldProcessor();
+    //    printf_s("Running on AP %d\n", GetCurrentProcessorNumber());
+    // }
      
 
     //printf("feels i'm being watched\n");

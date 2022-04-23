@@ -239,28 +239,31 @@ CommandSetupPt(
 	}
 
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
-	//if (result == WAIT_OBJECT_0)
-	//{
-	//	HANDLE thread = CreateThread(
-	//		NULL,
-	//		0,
-	//		ThreadProc,
-	//		data,
-	//		0,
-	//		NULL
-	//	);
-	//	WaitForSingleObject(thread, 0);
+	if (result == WAIT_OBJECT_0)
+	{
+		HANDLE thread = CreateThread(
+			NULL,
+			0,
+			ThreadProc,
+			data,
+			0,
+			NULL
+		);
+		if (thread == INVALID_HANDLE_VALUE || !thread)
+		{
+			return STATUS_FATAL_APP_EXIT;
+		}
+		WaitForSingleObject(thread, 0);
+	}
+	else
+	{
+		printf_s("DeviceIoControl unsuccessful\n");
+	}
 
-	//}
-	//else
-	//{
-	//	printf_s("DeviceIoControl unsuccessful\n");
-	//}
+	if (overlapped)
+		free(overlapped);
 
-	//if (overlapped)
-	//	free(overlapped);
-
-	//*Result = NULL;
+	*Result = NULL;
 
 	return CMC_STATUS_SUCCESS;
 }
@@ -375,8 +378,12 @@ ThreadProc(
 	unsigned long long bufferId;
 	PVOID bufferAddr;
 	FILE* fileHandle;
+	DebugBreak();
+
 	while (1 == 1)
 	{
+		DebugBreak();
+
 		status = CommandGetBuffer(
 			&bufferId,
 			&bufferAddr
@@ -393,12 +400,13 @@ ThreadProc(
 		);
 		if (fileHandle == INVALID_HANDLE_VALUE || !fileHandle)
 		{
+			DebugBreak();
 			return STATUS_ACCESS_VIOLATION;
 		}
 
 
 		char* buffAsByte = (char*)bufferAddr;
-		for (int i = 0; i < USN_PAGE_SIZE; i++)
+		for (int i = 0; i < 10 * USN_PAGE_SIZE; i++)
 		{
 			fprintf(fileHandle, "%c", buffAsByte[i]);
 		}
@@ -411,6 +419,7 @@ ThreadProc(
 			bufferId
 		);
 	}
+	DebugBreak();
 	return 0;
 }
 

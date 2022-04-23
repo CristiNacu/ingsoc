@@ -460,7 +460,8 @@ IptDpc(
 
     status = IptUnlinkFullTopaBuffers(
         &mdl,
-        gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
+        gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions,
+        TRUE
     );
     if (!NT_SUCCESS(status))
     {
@@ -638,7 +639,7 @@ PtwDpcPerCoreDisable(
     PMDL mdl;
     NTSTATUS status;
 
-    if (KeGetCurrentNodeNumber == 0)
+    if (KeGetCurrentNodeNumber() == 0)
     {
         status = PsSetCreateProcessNotifyRoutineEx(
             PtwHookProcessExit,
@@ -658,6 +659,10 @@ PtwDpcPerCoreDisable(
     if (!NT_SUCCESS(status))
     {
         DEBUG_PRINT("DuEnqueueElements error %X\n", status);
+    }
+    else
+    {
+        KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
     }
 
     return;

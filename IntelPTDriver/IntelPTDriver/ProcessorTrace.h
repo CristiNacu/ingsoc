@@ -45,7 +45,8 @@ IptResumeTrace(
 NTSTATUS
 IptUnlinkFullTopaBuffers(
     PMDL* Mdl,
-    INTEL_PT_OUTPUT_OPTIONS* CpuOptions
+    INTEL_PT_OUTPUT_OPTIONS* CpuOptions,
+    BOOLEAN AllocateNewTopa
 );
 
 BOOLEAN
