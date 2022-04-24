@@ -356,6 +356,7 @@ PtwHookProcessExit(
 {
     UNREFERENCED_PARAMETER(Process);
     NTSTATUS status;
+    PMIHANDLER oldHandler;
 
     if (CreateInfo)
         return;
@@ -366,12 +367,30 @@ PtwHookProcessExit(
     if (ProcessId != gProcessId)
         return;
 
-
+    DEBUG_STOP();
+    PtwDisable();
+    DEBUG_STOP();
     status = PsRemoveCreateThreadNotifyRoutine(
         PtwHookThreadCreation
     );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PsRemoveCreateThreadNotifyRoutine returned status %X\n", status);
+    }
 
-    PMIHANDLER oldHandler;
+    //status = PsSetCreateProcessNotifyRoutineEx(
+    //    PtwHookProcessExit,
+    //    TRUE
+    //);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_STOP();
+    //    DEBUG_PRINT("PsSetCreateProcessNotifyRoutineEx returned status %X\n", status);
+    //}
+
+    //DEBUG_STOP();
+    /// TODO: place this code somewhere
+
     oldHandler = 0;
     status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&oldHandler);
     if (!NT_SUCCESS(status))
@@ -382,9 +401,9 @@ PtwHookProcessExit(
     {
         DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
     }
+    DEBUG_STOP();
 
-    PtwDisable();
-    
+
     gProcessId = 0;
     gThreadHoodked = FALSE;
 
@@ -639,14 +658,6 @@ PtwDpcPerCoreDisable(
     PMDL mdl;
     NTSTATUS status;
 
-    if (KeGetCurrentNodeNumber() == 0)
-    {
-        status = PsSetCreateProcessNotifyRoutineEx(
-            PtwHookProcessExit,
-            TRUE
-        );
-    }
-
     IptDisableTrace(
         &mdl,
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
@@ -664,6 +675,8 @@ PtwDpcPerCoreDisable(
     {
         KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
     }
+
+    DEBUG_STOP();
 
     return;
 }
