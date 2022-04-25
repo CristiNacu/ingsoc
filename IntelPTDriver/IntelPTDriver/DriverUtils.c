@@ -325,3 +325,18 @@ DuEnqueueElements(
 
     return status;
 }
+
+void
+DuDumpMemory(
+    PVOID* Va,
+    unsigned Size
+)
+{
+    for (unsigned i = 0; i < Size; i++)
+    {
+        DEBUG_PRINT("%02X ", ((unsigned char*)Va)[i]);
+        if ((i + 1) % 10 == 0)
+            DEBUG_PRINT("\n");
+    }
+    DEBUG_PRINT("\n");
+}

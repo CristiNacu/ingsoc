@@ -444,7 +444,7 @@ IptAllocateNewTopaBuffer(
     );
     if (mdl == NULL)
     {
-        return STATUS_INSUFFICIENT_RESOURCES;
+        return STATUS_INSUFFICIENT_RESOURCES; // mood 
     }
 
     char* buff = (char*)MmMapLockedPagesSpecifyCache(
@@ -459,7 +459,7 @@ IptAllocateNewTopaBuffer(
     RtlFillBytes(
         buff,
         EntriesCount * PAGE_SIZE,
-        0
+        0xFF
     );
 
     MmUnmapLockedPages(

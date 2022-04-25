@@ -61,6 +61,12 @@ DuEnqueueElements(
     PVOID Elements[]
 );
 
+void
+DuDumpMemory(
+    PVOID* Va,
+    unsigned Size
+);
+
 QUEUE_HEAD_STRUCTURE*   gQueueHead;
 KEVENT                  gPagesAvailableEvent;
 KMUTEX                  gCommMutex;

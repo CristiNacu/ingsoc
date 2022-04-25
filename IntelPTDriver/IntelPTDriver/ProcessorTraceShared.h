@@ -1,6 +1,8 @@
 #ifndef _PROCESSOR_TRACE_SHARED_
 #define _PROCESSOR_TRACE_SHARED_
 
+///////////////// 4338
+
 /// Intel PT configuration 
 typedef enum _INTEL_PT_RANGE_TYPE {
     RangeUnused,

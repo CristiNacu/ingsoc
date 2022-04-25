@@ -327,7 +327,7 @@ PtwHookThreadCreation(
             .PacketCyc = {0},
             .PacketPtw = {0},
             .PacketPwr = {0},
-            .PacketTsc = {0},
+            .PacketTsc.Enable = TRUE,
             .PackteMtc = {0}
         }
     };
@@ -432,6 +432,11 @@ PtwHookImageLoad(
     }
 
     gProcessId = ProcessId;
+
+    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %X\nProcess Image Base PA %X\nProcess Image Size %d\n<<<<<<<<<<<\n",
+        ImageInfo->ImageBase,
+        MmGetPhysicalAddress(ImageInfo->ImageBase),
+        ImageInfo->ImageSize);
 
     status = PsSetCreateThreadNotifyRoutineEx(
         PsCreateThreadNotifyNonSystem,

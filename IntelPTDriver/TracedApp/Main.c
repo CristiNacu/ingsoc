@@ -11,7 +11,7 @@ DWORD WINAPI ThreadProc(
 
 void main()
 {
-    _ptwrite64(0xFFFFFFFFFFFFFFFF);
+    //_ptwrite64(0xDEADBEEFDEADBEEF);
     
     //for (int i = 0; i < 3; i++)
     //{

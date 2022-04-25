@@ -226,6 +226,8 @@ PtwCommandGetBuffer(
     //    FALSE
     //);
 
+    DuDumpMemory(address, PAGE_SIZE);
+
     ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferAddress = address;
     ((COMM_BUFFER_ADDRESS*)OutputBuffer)->PageId = 0;       // TODO: Generate page id, transform array into linked list
     *BytesWritten = sizeof(COMM_BUFFER_ADDRESS);
