@@ -18,8 +18,11 @@ PtwEnable();
 NTSTATUS
 PtwDisable();
 
-NTSTATUS 
-PtwHookProcess();
+NTSTATUS
+PtwHookProcessCodeBase();
+
+NTSTATUS
+PtwHookProcessCr3();
 
 NTSTATUS
 PtwHookSSDT();

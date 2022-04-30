@@ -76,7 +76,7 @@ PtwCommandTraceProcess(
 
     NTSTATUS status;
     DEBUG_STOP();
-    status = PtwHookProcess();
+    status = PtwHookProcessCodeBase();
 
     return status;
 }

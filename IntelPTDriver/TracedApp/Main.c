@@ -29,7 +29,19 @@ void main()
     //    YieldProcessor();
     //    printf_s("Running on AP %d\n", GetCurrentProcessorNumber());
     // }
-     
+    
+    int a = 1;
+    int b = 2;
 
+    a += b;
+
+    if (a + b > 10)
+    {
+        printf("A + B > 10");
+    }
+    else
+    {
+        printf("A + B <= 10");
+    }
     //printf("feels i'm being watched\n");
 }

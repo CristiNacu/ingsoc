@@ -561,6 +561,7 @@ IptInitTopaOutput(
 
     // Configure the trace to start at table 0 index 0 in the current ToPA
     Options->OutputMask.Raw = 0x7F;
+    //Options->OutputMask.Fields.OutputOffset = 0x28;
     Options->RunningStatus = IPT_STATUS_INITIALIZED;
 
     return status;

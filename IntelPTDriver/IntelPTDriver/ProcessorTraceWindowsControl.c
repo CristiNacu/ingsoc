@@ -68,7 +68,14 @@ IptPageAllocation(
 );
 
 void
-PtwHookImageLoad(
+PtwHookImageLoadCr3(
+    PUNICODE_STRING FullImageName,
+    HANDLE ProcessId,
+    PIMAGE_INFO ImageInfo
+);
+
+void
+PtwHookImageLoadCodeBase(
     PUNICODE_STRING FullImageName,
     HANDLE ProcessId,
     PIMAGE_INFO ImageInfo
@@ -258,12 +265,29 @@ PtwDisable()
 
 PUBLIC
 NTSTATUS 
-PtwHookProcess()
+PtwHookProcessCr3()
 {
     NTSTATUS status;
 
     status = PsSetLoadImageNotifyRoutine(
-        PtwHookImageLoad
+        PtwHookImageLoadCr3
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("PsSetLoadImageNotifyRoutine error %X\n", status);
+    }
+
+    return status;
+}
+
+PUBLIC
+NTSTATUS
+PtwHookProcessCodeBase()
+{
+    NTSTATUS status;
+
+    status = PsSetLoadImageNotifyRoutine(
+        PtwHookImageLoadCodeBase
     );
     if (!NT_SUCCESS(status))
     {
@@ -322,13 +346,17 @@ PtwHookThreadCreation(
             }
         },
         .PacketGenerationOptions = {
-            .Misc = {0},
             .PacketCofi.Enable = TRUE,
             .PacketCyc = {0},
             .PacketPtw = {0},
             .PacketPwr = {0},
             .PacketTsc.Enable = TRUE,
-            .PackteMtc = {0}
+            .PackteMtc = {0},
+            .Misc = {
+                .PsbFrequency = Freq4K,
+                //.InjectPsbPmiOnEnable = TRUE,
+                .DisableRetCompression = TRUE
+            },
         }
     };
 
@@ -412,7 +440,7 @@ PtwHookProcessExit(
 
 PRIVATE
 void
-PtwHookImageLoad(
+PtwHookImageLoadCr3(
     PUNICODE_STRING FullImageName,
     HANDLE ProcessId,
     PIMAGE_INFO ImageInfo
@@ -432,10 +460,13 @@ PtwHookImageLoad(
     }
 
     gProcessId = ProcessId;
+    PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
+    PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
 
-    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %X\nProcess Image Base PA %X\nProcess Image Size %d\n<<<<<<<<<<<\n",
+    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %X\nProcess Image Base Start PA %X\nImage Base End PA %X\nProcess Image Size %d\n<<<<<<<<<<<\n",
         ImageInfo->ImageBase,
-        MmGetPhysicalAddress(ImageInfo->ImageBase),
+        imageBasePhysicalStartAddress,
+        imageBasePhysicalEndAddress,
         ImageInfo->ImageSize);
 
     status = PsSetCreateThreadNotifyRoutineEx(
@@ -446,6 +477,99 @@ PtwHookImageLoad(
     {
         return;
     }
+
+    status = PsSetCreateProcessNotifyRoutineEx(
+        PtwHookProcessExit,
+        FALSE
+    );
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("Failed to hook process creation. Status %X\n", status);
+        return;
+    }
+
+cleanup:
+    return;
+}
+
+PRIVATE
+void
+PtwHookImageLoadCodeBase(
+    PUNICODE_STRING FullImageName,
+    HANDLE ProcessId,
+    PIMAGE_INFO ImageInfo
+)
+{
+    UNREFERENCED_PARAMETER(ImageInfo);
+
+    NTSTATUS status;
+    wchar_t* found = wcsstr(
+        FullImageName->Buffer,
+        ExecutableName
+    );
+
+    if (found == NULL)
+    {
+        goto cleanup;
+    }
+    
+    DEBUG_STOP();
+    
+    gProcessId = ProcessId;
+    PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
+    PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
+
+    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %X\nProcess Image Base Start PA %X\nImage Base End PA %X\nProcess Image Size %d\n<<<<<<<<<<<\n",
+        ImageInfo->ImageBase,
+        imageBasePhysicalStartAddress,
+        imageBasePhysicalEndAddress,
+        ImageInfo->ImageSize);
+
+
+
+    INTEL_PT_CONFIGURATION filterConfiguration = {
+        .FilteringOptions = {
+            .FilterCpl = {
+                .FilterKm = FALSE,
+                .FilterUm = TRUE
+            },
+            .FilterCr3 = {
+                .Enable = FALSE,
+            },
+            .FilterRange = {
+                .Enable = TRUE,
+                .NumberOfRanges = 1,
+                .RangeOptions[0] = {
+                    .BaseAddress = imageBasePhysicalStartAddress,
+                    .EndAddress = imageBasePhysicalEndAddress,
+                    .RangeType = RangeFilterEn
+                }
+            }
+        },
+        .PacketGenerationOptions = {
+            .PacketCofi.Enable = TRUE,
+            .PacketCyc = {0},
+            .PacketPtw = {0},
+            .PacketPwr = {0},
+            .PacketTsc.Enable = FALSE,
+            .PackteMtc = {0},
+            .Misc = {
+                .PsbFrequency = Freq4K,
+                //.InjectPsbPmiOnEnable = TRUE,
+                .DisableRetCompression = TRUE
+            },
+        }
+    };
+
+    status = PtwSetup(
+        &filterConfiguration
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return;
+    }
+
+    DEBUG_PRINT("STARTED TRACING\n");
 
     status = PsSetCreateProcessNotifyRoutineEx(
         PtwHookProcessExit,

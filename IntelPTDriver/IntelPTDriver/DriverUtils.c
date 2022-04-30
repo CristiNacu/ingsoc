@@ -332,11 +332,12 @@ DuDumpMemory(
     unsigned Size
 )
 {
+    DEBUG_PRINT("%04X|", 0);
     for (unsigned i = 0; i < Size; i++)
     {
         DEBUG_PRINT("%02X ", ((unsigned char*)Va)[i]);
-        if ((i + 1) % 10 == 0)
-            DEBUG_PRINT("\n");
+        if ((i + 1) % 0x10 == 0 && ((i + 1) < Size))
+            DEBUG_PRINT("\n%04X|", i + 1);
     }
     DEBUG_PRINT("\n");
 }
