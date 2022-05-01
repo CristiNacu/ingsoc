@@ -175,6 +175,10 @@ IptDisableTrace(
     DEBUG_PRINT("Disabled trace on cpu %d\n", KeGetCurrentProcessorNumber());
     IptFlush();
 
+    IA32_RTIT_STATUS_STRUCTURE ptStatus;
+    PtGetStatus(ptStatus);
+    IA32_RTIT_OUTPUT_MASK_STRUCTURE outMask = { .Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS) };
+    DEBUG_PRINT("IA32_RTIT_OUTPUT_MASK_PTRS Table Offset %d Output Offset %d status %X\n", outMask.Fields.MaskOrTableOffset, outMask.Fields.OutputOffset, ptStatus.Raw);
 
 
     if(Mdl)
@@ -266,6 +270,8 @@ IptUnlinkFullTopaBuffers(
 
         IA32_RTIT_STATUS_STRUCTURE ptStatus;
         PtGetStatus(ptStatus);
+        IA32_RTIT_OUTPUT_MASK_STRUCTURE outMask = { .Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS) };
+        DEBUG_PRINT("IA32_RTIT_OUTPUT_MASK_PTRS Table Offset %d Output Offset %d status %X\n", outMask.Fields.MaskOrTableOffset, outMask.Fields.OutputOffset, ptStatus.Raw);
 
         __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, CpuOptions->OutputMask.Raw);
         __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
@@ -389,7 +395,9 @@ IptConfigureProcessorTrace(
 
     if (FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].RangeType != RangeUnused)
     {
+        DEBUG_PRINT("Writing Base Address %p to IA32_RTIT_ADDR0_A\n", FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress);
         __writemsr(IA32_RTIT_ADDR0_A, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress);
+        DEBUG_PRINT("Writing End Address %p to IA32_RTIT_ADDR0_B\n", FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
         __writemsr(IA32_RTIT_ADDR0_B, (unsigned long long)FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
     }
 
@@ -458,7 +466,7 @@ IptAllocateNewTopaBuffer(
 
     RtlFillBytes(
         buff,
-        EntriesCount * PAGE_SIZE,
+        mdl->ByteCount,
         0xFF
     );
 
@@ -472,6 +480,7 @@ IptAllocateNewTopaBuffer(
 
     for (unsigned i = 0; i < EntriesCount; i++)
     {
+        DEBUG_PRINT("New buffer in topa. Frame: %X\n", pfnArray[i]);
         TopaTableVa[i].OutputRegionBasePhysicalAddress = pfnArray[i];
         TopaTableVa[i].END = FALSE;
         TopaTableVa[i].INT = (i == (EntriesCount - 1)) ? TRUE : FALSE;
@@ -549,6 +558,8 @@ IptInitTopaOutput(
 
     Options->TopaTablePa = (PVOID)MmGetPhysicalAddress(topaTableVa).QuadPart;
     Options->TopaTableVa = (PVOID)topaTableVa;
+
+    DEBUG_PRINT("TopaTablePa %x\n", (unsigned long long)Options->TopaTablePa);
 
     status = IptAllocateNewTopaBuffer(
         Options->TopaEntries,
@@ -757,7 +768,9 @@ IptSetup(
     UNREFERENCED_PARAMETER(ControlStructure);
 
     NTSTATUS status;
-    
+    DEBUG_PRINT(">>> BA %p EA %p\n", 
+        FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress,
+        FilterConfiguration->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
 
     status = IptValidateConfigurationRequest(
         FilterConfiguration

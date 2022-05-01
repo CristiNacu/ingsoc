@@ -241,6 +241,10 @@ PtwSetup(
     PMIHANDLER newPmiHandler;
     NTSTATUS status;
 
+    DEBUG_PRINT(">>> BA %p EA %p\n",
+        Config->FilteringOptions.FilterRange.RangeOptions[0].BaseAddress,
+        Config->FilteringOptions.FilterRange.RangeOptions[0].EndAddress);
+    
     newPmiHandler = IptPmiHandler;
     status = HalSetSystemInformation(HalProfileSourceInterruptHandler, sizeof(PVOID), (PVOID)&newPmiHandler);
     if (!NT_SUCCESS(status))
@@ -304,6 +308,9 @@ PtwHookSSDT()
     return STATUS_SUCCESS;
 }
 
+PVOID gImageBasePaStart = 0;
+PVOID gImageBasePaEnd = 0;
+
 PRIVATE
 void
 PtwHookThreadCreation(
@@ -341,16 +348,21 @@ PtwHookThreadCreation(
                 .Cr3Address = (PVOID)cr3
             },
             .FilterRange = {
-                .Enable = FALSE,
-                .NumberOfRanges = 0
+                .Enable = gImageBasePaStart != 0 ? TRUE : FALSE,
+                .NumberOfRanges = gImageBasePaStart != 0 ? 0 : 1,
+                .RangeOptions[0] = {
+                    .BaseAddress = gImageBasePaStart,
+                    .EndAddress = gImageBasePaEnd,
+                    .RangeType = gImageBasePaStart != 0 ? RangeFilterEn : RangeUnused
             }
+        }
         },
         .PacketGenerationOptions = {
             .PacketCofi.Enable = TRUE,
             .PacketCyc = {0},
             .PacketPtw = {0},
             .PacketPwr = {0},
-            .PacketTsc.Enable = TRUE,
+            .PacketTsc.Enable = FALSE,
             .PackteMtc = {0},
             .Misc = {
                 .PsbFrequency = Freq4K,
@@ -516,60 +528,39 @@ PtwHookImageLoadCodeBase(
     DEBUG_STOP();
     
     gProcessId = ProcessId;
-    PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
-    PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
 
-    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %X\nProcess Image Base Start PA %X\nImage Base End PA %X\nProcess Image Size %d\n<<<<<<<<<<<\n",
-        ImageInfo->ImageBase,
-        imageBasePhysicalStartAddress,
-        imageBasePhysicalEndAddress,
-        ImageInfo->ImageSize);
-
-
-
-    INTEL_PT_CONFIGURATION filterConfiguration = {
-        .FilteringOptions = {
-            .FilterCpl = {
-                .FilterKm = FALSE,
-                .FilterUm = TRUE
-            },
-            .FilterCr3 = {
-                .Enable = FALSE,
-            },
-            .FilterRange = {
-                .Enable = TRUE,
-                .NumberOfRanges = 1,
-                .RangeOptions[0] = {
-                    .BaseAddress = imageBasePhysicalStartAddress,
-                    .EndAddress = imageBasePhysicalEndAddress,
-                    .RangeType = RangeFilterEn
-                }
-            }
-        },
-        .PacketGenerationOptions = {
-            .PacketCofi.Enable = TRUE,
-            .PacketCyc = {0},
-            .PacketPtw = {0},
-            .PacketPwr = {0},
-            .PacketTsc.Enable = FALSE,
-            .PackteMtc = {0},
-            .Misc = {
-                .PsbFrequency = Freq4K,
-                //.InjectPsbPmiOnEnable = TRUE,
-                .DisableRetCompression = TRUE
-            },
-        }
-    };
-
-    status = PtwSetup(
-        &filterConfiguration
+    status = PsSetCreateThreadNotifyRoutineEx(
+        PsCreateThreadNotifyNonSystem,
+        (PVOID)PtwHookThreadCreation
     );
     if (!NT_SUCCESS(status))
     {
         return;
     }
 
-    DEBUG_PRINT("STARTED TRACING\n");
+
+    PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
+    PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
+
+    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %p\nProcess Image Base Start PA %p\nImage Base End PA %p\nProcess Image Size %lld\n<<<<<<<<<<<\n",
+        ImageInfo->ImageBase,
+        imageBasePhysicalStartAddress,
+        imageBasePhysicalEndAddress,
+        ImageInfo->ImageSize);
+
+
+    gImageBasePaStart = ImageInfo->ImageBase;
+    gImageBasePaEnd = (PVOID)((char *)ImageInfo->ImageBase + ImageInfo->ImageSize);
+
+
+    status = PsSetCreateThreadNotifyRoutineEx(
+        PsCreateThreadNotifyNonSystem,
+        (PVOID)PtwHookThreadCreation
+    );
+    if (!NT_SUCCESS(status))
+    {
+        return;
+    }
 
     status = PsSetCreateProcessNotifyRoutineEx(
         PtwHookProcessExit,
