@@ -4,7 +4,7 @@ import re
 import json
 
 ip_compression_packet_size = {
-    0 : 1,
+    0 : 0,
     1 : 2,
     2 : 4,
     3 : 6,
