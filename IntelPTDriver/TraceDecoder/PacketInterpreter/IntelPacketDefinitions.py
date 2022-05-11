@@ -21,10 +21,6 @@ ptw_packet_size = {
     3 : None
 }
 
-def placeholder_function(data, name):
-    print(f"packet name {name} with data {data}")
-    pass
-
 packet_definitions = [
     {
         "packet_name" : "TNT",
@@ -126,13 +122,13 @@ packet_definitions = [
         "packet_name" : "PSB",
         "packet_header" : ["00000010", "10000010"] * 8,
         "packet_length" : 16,
-        "handle" : placeholder_function  
+        "handle" : psb_packet_handler  
     },
     {
         "packet_name" : "PSBEND",
         "packet_header" : ["00000010", "00100011"],
         "packet_length" : 2,
-        "handle" : placeholder_function  
+        "handle" : psbend_packet_handler  
     },
     {
         "packet_name" : "MNT",

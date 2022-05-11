@@ -1,7 +1,5 @@
 # constant definitions
-
 import json
-
 
 PACKET_TNT_TAKEN = 1
 PACKET_TNT_NOT_TAKEN = 2
@@ -11,6 +9,23 @@ PACKET_TIP_PGE = 5
 PACKET_TIP_PGD = 6
 PACKET_CBR = 7
 PACKET_MODE = 8
+PACKET_PSB = 9
+PACKET_PSBEND = 10
+PACKET_UNDEFINED = 11
+
+PACKET_ID_TO_STRING = {
+    PACKET_TNT_TAKEN: "PACKET_TNT_TAKEN",
+    PACKET_TNT_NOT_TAKEN: "PACKET_TNT_NOT_TAKEN",
+    PACKET_FUP: "PACKET_FUP",
+    PACKET_TIP: "PACKET_TIP",
+    PACKET_TIP_PGE: "PACKET_TIP_PGE",
+    PACKET_TIP_PGD: "PACKET_TIP_PGD",
+    PACKET_CBR: "PACKET_CBR",
+    PACKET_MODE: "PACKET_MODE",
+    PACKET_PSB : "PSB",
+    PACKET_PSBEND : "PSBEND",
+    PACKET_UNDEFINED : "PACKET_UNDEFINED"
+}
 
 class PacketBase:
     def __init__(self, packet_type : int) -> None:
@@ -34,7 +49,6 @@ class PacketTip(PacketBase):
     #         self.type = __value
     #     elif __name == "address":
     #         self.address = __value
-        
     #     else:
     #         raise AttributeError(f"Attribute {__name} not available")
 

@@ -11,25 +11,7 @@ DWORD WINAPI ThreadProc(
 
 void main()
 {
-    //_ptwrite64(0xDEADBEEFDEADBEEF);
-    
-    //for (int i = 0; i < 3; i++)
-    //{
-    //    CreateThread(
-    //        NULL,
-    //        0,
-    //        ThreadProc,
-    //        NULL,
-    //        0,
-    //        NULL
-    //    );
-    //}
-    //for (unsigned i = 0; i < 0xff; i++)
-    //{
-    //    YieldProcessor();
-    //    printf_s("Running on AP %d\n", GetCurrentProcessorNumber());
-    // }
-    
+
     int a = 1;
     int b = 2;
 
@@ -43,5 +25,4 @@ void main()
     {
         printf("A + B <= 10");
     }
-    //printf("feels i'm being watched\n");
 }

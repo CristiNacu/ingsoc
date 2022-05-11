@@ -1,30 +1,26 @@
 import sys
 from matplotlib import pyplot as plt
 from PacketInterpreter.PacketInterpreter import PacketInterpretor
+from PacketInterpreter.InternalPacketDefinitions import PACKET_ID_TO_STRING
 import json
-
-def placeholder_function(packet_data, packet_name):
-    print(f"Packet {packet_name} handle with data {packet_data}")
-    pass
-
-def tip_fup_packet_handler(packet_data, packet_name):
-    pass
-
-def mode_packet_handler():
-    pass
-
-def cbr_packet_definition():
-    pass
-
-
 
 def parser(bytes, interpretor : PacketInterpretor):
     for byte in bytes:
         interpretor.process_byte(byte)
     
     # print(json.dumps(interpretor.get_succession(), indent = 4))
+    packets = {}
     for el in interpretor.get_succession():
-        print(str(el))
+        # print(str(el))
+        if PACKET_ID_TO_STRING[el.pkacet_id] in packets.keys():
+            packets[PACKET_ID_TO_STRING[el.pkacet_id]] += 1
+        else:
+            packets[PACKET_ID_TO_STRING[el.pkacet_id]] = 1
+
+    print(json.dumps(packets, indent=4))    
+    plt.xticks(rotation=45)
+    plt.bar(packets.keys(), packets.values())
+    plt.show()
 
 
 

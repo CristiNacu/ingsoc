@@ -1,5 +1,19 @@
 from PacketInterpreter.InternalPacketDefinitions import *
 
+def placeholder_function(packet_data, packet_name, context):
+    print(f"Intercepted {packet_name} with default handler")
+    return PacketBase(PACKET_UNDEFINED)
+
+def psb_packet_handler(packet_data, packet_name, context):
+    print(f"Intercepted PSB")
+    context["disable_interpreting"] = True
+    return PacketBase(PACKET_PSB)
+
+def psbend_packet_handler(packet_data, packet_name, context):
+    print(f"Intercepted PSBEND")
+    context["disable_interpreting"] = False
+    return PacketBase(PACKET_PSBEND)
+
 def tnt_packet_handler(packet_data, packet_name, context) -> PacketBase:
     # TODO: Support large TNT packets
 
@@ -74,7 +88,7 @@ def fup_tip_packet_handler(packet_data, packet_name, context) -> PacketBase:
         addr = (addr | SIGN_EXTEND_MASK[sign_extension]) if sign_extension else (addr & SIGN_EXTEND_MASK[sign_extension])
 
     context["LastIP"] = addr
-    packet.address = hex(addr)
+    packet.address = addr
     
     return packet
 

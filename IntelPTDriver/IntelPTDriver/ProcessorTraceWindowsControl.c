@@ -485,7 +485,7 @@ PtwHookImageLoadCr3(
         PsCreateThreadNotifyNonSystem,
         (PVOID)PtwHookThreadCreation
     );
-    if (!NT_SUCCESS(status))
+    if (!NT_SUCCESS(status)) 
     {
         return;
     }

@@ -26,7 +26,7 @@ class PacketInterpretor:
         # Number of bytes in the current packet
         self.__current_packet_length = 0
         # Context for hanlders to maintain data inside
-        self.__context = {}
+        self.__context = {"disable_interpreting": False}
 
 
     def __validate_header_byte(self, data_byte : int, header_definition : Any) -> bool:
@@ -149,11 +149,18 @@ class PacketInterpretor:
             # self.__succession.append([packet_name,  [hex(el) for el in self.__accumulator]])
             
             # Convert the packet from bytes to relevant internal data
-            result = self.__current_packet["handle"](self.__accumulator, packet_name, self.__context)
-            if isinstance(result, list):
-                self.__succession.extend(result)
+            if "handle" in self.__current_packet.keys() and self.__current_packet["handle"] is not None:
+                result = self.__current_packet["handle"](self.__accumulator, packet_name, self.__context)
             else:
-                self.__succession.append(result)
+                print(f"[WARNING] Packet type {packet_name} has no handle!")
+            
+            if self.__context["disable_interpreting"] is False:
+                if isinstance(result, list):
+                    self.__succession.extend(result)
+                else:
+                    self.__succession.append(result)
+            else:
+                print(f"dropped packet {packet_name} due to interpreter being disabled!")
             
             # Reset internal state
             self.__in_packet = False
@@ -161,5 +168,5 @@ class PacketInterpretor:
             self.__current_candidates = packet_definitions
             self.__header_index = 0
 
-    def get_succession(self):
+    def get_succession(self) -> list:
         return self.__succession
