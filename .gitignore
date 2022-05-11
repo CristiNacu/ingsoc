@@ -56,3 +56,4 @@ IntelPTDriver/.vs
 IntelPTDriver/IntelPTUserModeApp/x64
 IntelPTDriver/TracedApp/x64
 IntelPTDriver/TraceDecoder/PacketInterpreter/__pycache__
+*.png
