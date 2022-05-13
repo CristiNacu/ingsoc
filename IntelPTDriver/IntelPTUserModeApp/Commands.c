@@ -411,6 +411,10 @@ ThreadProc(
 			fprintf(fileHandle, "%c", buffAsByte[i]);
 		}
 
+		if (!FlushFileBuffers(fileHandle))
+		{
+			printf("Could not flush file buffers\n");
+		}
 		fclose(fileHandle);
 		printf("Written bytes\n");
 
