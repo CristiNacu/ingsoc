@@ -1,28 +1,19 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
-#include <windows.h>
-#include <intrin.h>
-
-DWORD WINAPI ThreadProc(
-    _In_ LPVOID lpParameter
-)
-{
-    while (1==1);
-}
 
 void main()
 {
+    char lookAtMeIAmABufferOverflow[10];
+    int a = 10;
+    int b = 20;
+    scanf("%s", lookAtMeIAmABufferOverflow);
 
-    int a = 1;
-    int b = 2;
+    int c = a + b;
 
-    a += b;
-
-    if (a + b > 10)
+    for (int i = 0; i < c; i++)
     {
-        printf("A + B > 10");
+        a++;
     }
-    else
-    {
-        printf("A + B <= 10");
-    }
+
+    printf("a = %d\n", a);
 }
