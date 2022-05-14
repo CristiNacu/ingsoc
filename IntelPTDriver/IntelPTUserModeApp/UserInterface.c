@@ -1,7 +1,7 @@
 #include "UserInterface.h"
 #include "Commands.h"
 #include <stdio.h>
-
+#include <Windows.h>
 typedef enum _PARAMETER_TYPE {
 
     ParameterTypeInt,

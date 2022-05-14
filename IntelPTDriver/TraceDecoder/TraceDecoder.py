@@ -3,6 +3,11 @@ from matplotlib import pyplot as plt
 from PacketInterpreter.PacketInterpreter import PacketInterpretor
 from PacketInterpreter.InternalPacketDefinitions import PACKET_ID_TO_STRING
 import json
+from kafka import KafkaConsumer
+
+consumer = KafkaConsumer("test_driver_topic", bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
+for msg in consumer:
+    print(msg)
 
 def parser(bytes, interpretor : PacketInterpretor):
     for byte in bytes:
