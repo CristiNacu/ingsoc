@@ -457,9 +457,15 @@ CommandExit(
 	UNREFERENCED_PARAMETER(InParameter);
 	UNREFERENCED_PARAMETER(Result);
 
-	KafkaUninit(
+	NTSTATUS status;
+
+	status = KafkaUninit(
 		KafkaHandler
 	);
+	if (status != CMC_STATUS_SUCCESS)
+	{
+		printf_s("[ERROR] Couldn't uninit Kafka!\n");
+	}
 
-	return CMC_STATUS_SUCCESS;
+	return status;
 }
