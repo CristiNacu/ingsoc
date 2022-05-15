@@ -144,12 +144,14 @@
   <ItemGroup>
     <ClCompile Include="Commands.c" />
     <ClCompile Include="Communication.c" />
+    <ClCompile Include="KafkaUtils.c" />
     <ClCompile Include="Main.c" />
     <ClCompile Include="UserInterface.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Commands.h" />
     <ClInclude Include="Communication.h" />
+    <ClInclude Include="KafkaUtils.h" />
     <ClInclude Include="UserInterface.h" />
   </ItemGroup>
   <ItemGroup>

@@ -1,0 +1,10 @@
+{
+    "bootstrap_server": "localhost:9092",
+    "topic_name": "is_this_required",
+    "trace_type": {
+        "type": "executable",
+        "usermode": true,
+        "kernel": false,
+    }
+
+}

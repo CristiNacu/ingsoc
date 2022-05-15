@@ -27,6 +27,9 @@
     <ClCompile Include="Communication.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="KafkaUtils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Commands.h">
@@ -36,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Communication.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="KafkaUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

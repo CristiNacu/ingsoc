@@ -4,6 +4,9 @@
 #include "Public.h"
 #include "ProcessorTraceShared.h"
 #include <fileapi.h>
+#include "KafkaUtils.h"
+
+KAFKA_HANDLER KafkaHandler;
 
 NTSTATUS
 CommandTest(
@@ -22,7 +25,6 @@ CommandTest(
 	message = (COMMUNICATION_MESSAGE*)malloc(sizeof(COMMUNICATION_MESSAGE));
 	if (!message)
 	{
-		//...
 		return STATUS_INVALID_HANDLE;
 	}
 
@@ -210,6 +212,7 @@ ThreadProc(
 NTSTATUS
 CommandSetupPt(
     _In_    PVOID   InParameter,
+	_In_	char*	Brokers,
     _Out_   PVOID*  Result
 )
 {
@@ -225,6 +228,12 @@ CommandSetupPt(
 	message.DataOut = &data;
 	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
+
+
+	status = KafkaInit(
+		Brokers,
+		&KafkaHandler
+	);
 
 	status = CommunicationSendMessage(
 		&message,
@@ -406,6 +415,18 @@ ThreadProc(
 
 
 		char* buffAsByte = (char*)bufferAddr;
+
+		status = KafkaSendMessage(
+			KafkaHandler,
+			"ana_are_mere",
+			bufferAddr,
+			10 * USN_PAGE_SIZE
+		);
+		if (status != CMC_STATUS_SUCCESS)
+		{
+			printf_s("[ERROR] Could not send message to kafka!\n");
+		}
+
 		for (int i = 0; i < 10 * USN_PAGE_SIZE; i++)
 		{
 			fprintf(fileHandle, "%c", buffAsByte[i]);
@@ -435,6 +456,10 @@ CommandExit(
 {
 	UNREFERENCED_PARAMETER(InParameter);
 	UNREFERENCED_PARAMETER(Result);
+
+	KafkaUninit(
+		KafkaHandler
+	);
 
 	return CMC_STATUS_SUCCESS;
 }
