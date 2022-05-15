@@ -144,6 +144,7 @@
   <ItemGroup>
     <ClCompile Include="Commands.c" />
     <ClCompile Include="Communication.c" />
+    <ClCompile Include="Globals.h" />
     <ClCompile Include="KafkaUtils.c" />
     <ClCompile Include="Main.c" />
     <ClCompile Include="UserInterface.c" />
@@ -155,6 +156,10 @@
     <ClInclude Include="UserInterface.h" />
   </ItemGroup>
   <ItemGroup>
+    <CopyFileToFolders Include="config.cfg">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

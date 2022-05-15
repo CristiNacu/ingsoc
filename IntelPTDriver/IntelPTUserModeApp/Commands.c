@@ -1,12 +1,5 @@
-#include "Commands.h"
-#include "Communication.h"
-#include <stdio.h>
-#include "Public.h"
-#include "ProcessorTraceShared.h"
-#include <fileapi.h>
-#include "KafkaUtils.h"
+#include "Globals.h"
 
-KAFKA_HANDLER KafkaHandler;
 
 NTSTATUS
 CommandTest(
@@ -212,10 +205,12 @@ ThreadProc(
 NTSTATUS
 CommandSetupPt(
     _In_    PVOID   InParameter,
-	_In_	char*	Brokers,
     _Out_   PVOID*  Result
 )
 {
+	UNREFERENCED_PARAMETER(InParameter);
+	UNREFERENCED_PARAMETER(Result);
+
 	NTSTATUS status;
 	COMMUNICATION_MESSAGE message;
 	DWORD bytesWritten;
@@ -229,12 +224,20 @@ CommandSetupPt(
 	message.DataOutSize = sizeof(COMM_DATA_SETUP_IPT);
 	message.BytesWritten = &bytesWritten;
 
-
+	printf_s("[INFO] Kafka init\n");
 	status = KafkaInit(
-		Brokers,
-		&KafkaHandler
+		gApplicationGlobals->KafkaConfig.BootstrapServer,
+		&gApplicationGlobals->KafkaConfig.KafkaHandler
 	);
+	if (status != CMC_STATUS_SUCCESS)
+	{
+		printf_s("[ERROR] Kafka initialization failed!\n");
+		return status;
+	}
+	printf_s("[INFO] Kafka init successful\n");
 
+
+	printf_s("[INFO] Calling the driver\n");
 	status = CommunicationSendMessage(
 		&message,
 		&overlapped
@@ -246,10 +249,14 @@ CommandSetupPt(
 		// ...
 		return STATUS_INVALID_HANDLE;
 	}
+	printf_s("[INFO] Driver called\n");
+
 
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
+	printf_s("[INFO] Driver responded\n");
 	if (result == WAIT_OBJECT_0)
 	{
+		printf_s("[INFO] Create worker thread\n");
 		HANDLE thread = CreateThread(
 			NULL,
 			0,
@@ -263,10 +270,11 @@ CommandSetupPt(
 			return STATUS_FATAL_APP_EXIT;
 		}
 		WaitForSingleObject(thread, 0);
+		printf_s("[INFO] Thread created\n");
 	}
 	else
 	{
-		printf_s("DeviceIoControl unsuccessful\n");
+		printf_s("[ERROR] DeviceIoControl unsuccessful\n");
 	}
 
 	if (overlapped)
@@ -402,6 +410,23 @@ ThreadProc(
 			continue;
 		}
 
+		char* buffAsByte = (char*)bufferAddr;
+
+		status = KafkaSendMessage(
+			gApplicationGlobals->KafkaConfig.KafkaHandler,
+			"ana_are_mere",
+			bufferAddr,
+			10 * USN_PAGE_SIZE
+		);
+		if (status != CMC_STATUS_SUCCESS)
+		{
+			printf_s("[ERROR] Could not send message to kafka!\n");
+		}
+		else
+		{
+			printf_s("[INFO] Sent buffer %p with size %ud to Kafka!\n", bufferAddr, 10 * USN_PAGE_SIZE);
+		}
+		
 		fopen_s(
 			&fileHandle,
 			"ProcessorTrace",
@@ -411,20 +436,6 @@ ThreadProc(
 		{
 			DebugBreak();
 			return STATUS_ACCESS_VIOLATION;
-		}
-
-
-		char* buffAsByte = (char*)bufferAddr;
-
-		status = KafkaSendMessage(
-			KafkaHandler,
-			"ana_are_mere",
-			bufferAddr,
-			10 * USN_PAGE_SIZE
-		);
-		if (status != CMC_STATUS_SUCCESS)
-		{
-			printf_s("[ERROR] Could not send message to kafka!\n");
 		}
 
 		for (int i = 0; i < 10 * USN_PAGE_SIZE; i++)
@@ -460,7 +471,7 @@ CommandExit(
 	NTSTATUS status;
 
 	status = KafkaUninit(
-		KafkaHandler
+		gApplicationGlobals->KafkaConfig.KafkaHandler
 	);
 	if (status != CMC_STATUS_SUCCESS)
 	{

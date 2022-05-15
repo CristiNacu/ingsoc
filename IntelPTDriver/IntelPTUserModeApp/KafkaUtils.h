@@ -8,7 +8,7 @@ KafkaInit(
 
 NTSTATUS
 KafkaUninit(
-	KAFKA_HANDLER* KafkaHandler
+	KAFKA_HANDLER KafkaHandler
 );
 
 NTSTATUS

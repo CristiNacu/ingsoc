@@ -63,6 +63,7 @@ NTSTATUS
 StopKafkaPolling()
 {
     WaitForSingleObject(gPollingThreadHandle, INFINITE);
+    return CMC_STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -100,7 +101,7 @@ KafkaInit(
 
 NTSTATUS
 KafkaUninit(
-    KAFKA_HANDLER* KafkaHandler
+    KAFKA_HANDLER KafkaHandler
 )
 {
     rd_kafka_t* rk = (rd_kafka_t*)KafkaHandler;
@@ -120,6 +121,8 @@ KafkaUninit(
 
     /* Destroy the producer instance */
     rd_kafka_destroy(rk);
+
+    return CMC_STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -187,4 +190,6 @@ retry:
             "for topic %s\n",
             BufferLength, Topic);
     }
+
+    return CMC_STATUS_SUCCESS;
 }

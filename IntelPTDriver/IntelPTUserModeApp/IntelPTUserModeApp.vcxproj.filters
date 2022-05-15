@@ -30,6 +30,9 @@
     <ClCompile Include="KafkaUtils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Globals.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Commands.h">
@@ -47,5 +50,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="config.cfg">
+      <Filter>Resource Files</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
 </Project>

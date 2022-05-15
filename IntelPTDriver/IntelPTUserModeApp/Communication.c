@@ -1,8 +1,7 @@
 #include "Communication.h"
 #include "Public.h"
 #include <stdio.h>
-
-HANDLE gDriverHandle = INVALID_HANDLE_VALUE;
+#include "Globals.h"
 
 NTSTATUS
 CommunicationGetDriverHandle(
@@ -10,9 +9,9 @@ CommunicationGetDriverHandle(
 )
 {
 	NTSTATUS status = CMC_STATUS_SUCCESS;
-	if (gDriverHandle == INVALID_HANDLE_VALUE)
+	if (gApplicationGlobals->Ipt.gDriverHandle == INVALID_HANDLE_VALUE)
 	{
-		gDriverHandle = CreateFileW(
+		gApplicationGlobals->Ipt.gDriverHandle = CreateFileW(
 			SAMPLE_DEVICE_OPEN_NAME,
 			GENERIC_READ | GENERIC_WRITE,
 			FILE_SHARE_READ,
@@ -20,13 +19,16 @@ CommunicationGetDriverHandle(
 			OPEN_EXISTING,
 			FILE_FLAG_OVERLAPPED,
 			NULL);
-		if (gDriverHandle == INVALID_HANDLE_VALUE)
+		if (gApplicationGlobals->Ipt.gDriverHandle == INVALID_HANDLE_VALUE)
 		{
 			printf_s("Could not retrieve driver handle! Error %X\n", GetLastError());
 			status = STATUS_INVALID_HANDLE;
 		}
+		printf_s("[INFO] New driver handle %p\n", gApplicationGlobals->Ipt.gDriverHandle);
 	}
-	*Handle = gDriverHandle;
+	*Handle = gApplicationGlobals->Ipt.gDriverHandle;
+	printf_s("[INFO] New driver handle %p\n", gApplicationGlobals->Ipt.gDriverHandle);
+
 	return status;
 }
 

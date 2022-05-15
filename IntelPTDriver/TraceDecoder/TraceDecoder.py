@@ -5,10 +5,6 @@ from PacketInterpreter.InternalPacketDefinitions import PACKET_ID_TO_STRING
 import json
 from kafka import KafkaConsumer
 
-consumer = KafkaConsumer("test_driver_topic", bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
-for msg in consumer:
-    print(msg)
-
 def parser(bytes, interpretor : PacketInterpretor):
     for byte in bytes:
         interpretor.process_byte(byte)
@@ -32,12 +28,14 @@ def parser(bytes, interpretor : PacketInterpretor):
 def read_trace(file_path: str):
     interpretor = PacketInterpretor()
 
-    data = b""
+    # data = b""
 
-    with open(file_path, "rb") as f:
-        data = f.read()
+    # with open(file_path, "rb") as f:
+    #     data = f.read()
     
-    parser(data, interpretor)
+    consumer = KafkaConsumer("ana_are_mere", bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
+    for msg in consumer:
+        parser(msg.value, interpretor)
 
 def print_help():
     print("TraceDecoder.py <trace_file_path>")
