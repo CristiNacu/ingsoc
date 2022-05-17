@@ -124,12 +124,13 @@ PtwCommandGetBuffer(
     }
 
     PVOID address;
-    PMDL mdl;
+    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto;
     NTSTATUS status;
+    PMDL mdl;
 
     status = DuDequeueElement(
         gQueueHead,
-        (PVOID)&mdl
+        (PVOID)&dto
     );
 
 
@@ -154,7 +155,7 @@ PtwCommandGetBuffer(
 
         status = DuDequeueElement(
             gQueueHead,
-            (PVOID)&mdl
+            (PVOID)&dto
         );
     }
     if (!NT_SUCCESS(status))
@@ -164,6 +165,8 @@ PtwCommandGetBuffer(
         *BytesWritten = 0;
         return status;
     }
+
+    mdl = dto->BufferBaseAddress;
 
     address = MmMapLockedPagesSpecifyCache(
         mdl,
@@ -180,57 +183,20 @@ PtwCommandGetBuffer(
         return status;
     }
 
-    //USER_MAPPING_INTERNAL_STRUCTURE* mapping = ExAllocatePoolWithTag(
-    //    PagedPool,
-    //    sizeof(USER_MAPPING_INTERNAL_STRUCTURE),
-    //    PT_COMM_MEM_TAG
-    //);
-    //if (!mapping)
-    //{
-    //    DEBUG_PRINT("ExAllocatePoolWithTag failed\n");
-    //    return STATUS_INSUFFICIENT_RESOURCES;
-    //}
-
-    //mapping->BaseKAddr = data;
-    //mapping->BaseUAddr = userAddress;
-    //mapping->Mdl = mdl;
-
-    //status = KeWaitForSingleObject(
-    //    &gCommMutex,
-    //    Executive,
-    //    KernelMode,
-    //    TRUE,
-    //    NULL
-    //);
-    //if (!NT_SUCCESS(status))
-    //{
-    //    *OutputBuffer = NULL;
-    //    *BytesWritten = 0;
-    //    return status;
-    //}
-    //crtIdx = gCurrentId;
-    //while (gUserBufferMappings[crtIdx])
-    //{
-    //    crtIdx = (crtIdx + 1) % MAX_USER_MAPPINGS;
-    //    if (crtIdx == gCurrentId)
-    //    {
-    //        *OutputBuffer = NULL;
-    //        *BytesWritten = 0;
-    //        return STATUS_NO_MORE_ENTRIES;
-    //    }
-    //}
-    //gUserBufferMappings[crtIdx] = mapping;
-
-    //KeReleaseMutex(
-    //    &gCommMutex,
-    //    FALSE
-    //);
-
-    //DuDumpMemory(address, mdl->ByteCount);
-
     ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferAddress = address;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->PageId = 0;       // TODO: Generate page id, transform array into linked list
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferSize = dto->BufferLength;
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->CpuId = dto->ProcessorNumber;
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->FirstPacket = FALSE;
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->LastPacket = dto->EndPacket;
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->SequenceId = dto->SequenceId;
+
+    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->SequenceId = 0;       // TODO: Generate page id, transform array into linked list
     *BytesWritten = sizeof(COMM_BUFFER_ADDRESS);
+
+    ExFreePoolWithTag(
+        (PVOID)dto,
+        "ffuB"
+    );
 
     return status;
 }

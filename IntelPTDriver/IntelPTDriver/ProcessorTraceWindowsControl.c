@@ -7,9 +7,11 @@
 #define PRIVATE
 #define PTW_POOL_TAG                         'PTWP'
 
-typedef void (GENERIC_PER_CORE_SYNC_ROUTINE)(
+typedef 
+void (GENERIC_PER_CORE_SYNC_ROUTINE)(
     PVOID _In_ Context
 );
+
 
 typedef enum _PER_CORE_SYNC_EXECUTION_LEVEL {
     IptPerCoreExecutionLevelIpi,
@@ -548,10 +550,31 @@ PtwHookImageLoadCodeBase(
         imageBasePhysicalEndAddress,
         ImageInfo->ImageSize);
 
-
     gImageBasePaStart = ImageInfo->ImageBase;
     gImageBasePaEnd = (PVOID)((char *)ImageInfo->ImageBase + ImageInfo->ImageSize);
 
+    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto =
+        (PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO*)ExAllocatePoolWithTag(
+            NonPagedPool,
+            sizeof(PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO),
+            "ffuB"
+        );
+    if (!dto)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    dto->ImageBase = gImageBasePaStart;
+    dto->ProcessorNumber = 0;
+    dto->StartPacket = TRUE;
+    dto->EndPacket = FALSE;
+    dto->BufferLength = 0;
+    dto->SequenceId = 0; // TODO
+
+    DuEnqueueElement(
+        gQueueHead,
+        (PVOID)dto
+    );
 
     status = PsSetCreateThreadNotifyRoutineEx(
         PsCreateThreadNotifyNonSystem,
@@ -591,14 +614,14 @@ IptDpc(
     UNREFERENCED_PARAMETER(SystemArgument2);
 
     NTSTATUS status;
-    //unsigned WrittenAddresses = 0;
-    //PVOID* oldVaAddresses;
-
     PMDL mdl;
+    ULONG bufferSize;
+
     DEBUG_PRINT(">>> DPC ON AP %d\n", KeGetCurrentProcessorNumber());
 
     status = IptUnlinkFullTopaBuffers(
         &mdl,
+        &bufferSize,
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions,
         TRUE
     );
@@ -608,9 +631,27 @@ IptDpc(
         return;
     }
 
+    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto = 
+        (PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO*)ExAllocatePoolWithTag(
+            NonPagedPool,
+            sizeof(PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO),
+            "ffuB"
+        );
+    
+    if (!dto)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    dto->ProcessorNumber = KeGetCurrentProcessorNumber();
+    dto->BufferLength = bufferSize;
+    dto->BufferBaseAddress = mdl;
+    dto->SequenceId = 0; // TODO
+    dto->EndPacket = FALSE;
+
     status = DuEnqueueElement(
         gQueueHead,
-        (PVOID)mdl
+        (PVOID)dto
     );
     if (!NT_SUCCESS(status))
     {
@@ -777,15 +818,33 @@ PtwDpcPerCoreDisable(
     UNREFERENCED_PARAMETER(Context);
     PMDL mdl;
     NTSTATUS status;
-
+    ULONG bufferSize;
     IptDisableTrace(
         &mdl,
+        &bufferSize,
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
     );
 
+    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto =
+        (PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO*)ExAllocatePoolWithTag(
+            NonPagedPool,
+            sizeof(PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO),
+            "ffuB"
+        );
+    if (!dto)
+    {
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    dto->ProcessorNumber = KeGetCurrentProcessorNumber();
+    dto->BufferLength = bufferSize;
+    dto->BufferBaseAddress = mdl;
+    dto->SequenceId = 0; // TODO
+    dto->EndPacket = FALSE;
+
     status = DuEnqueueElement(
         gQueueHead,
-        (PVOID)mdl
+        (PVOID)dto
     );
     if (!NT_SUCCESS(status))
     {

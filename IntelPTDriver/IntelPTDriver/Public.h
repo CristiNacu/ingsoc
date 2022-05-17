@@ -25,8 +25,24 @@ typedef struct _COMM_DATA_SETUP_IPT {
 } COMM_DATA_SETUP_IPT;
 
 typedef struct _COMM_BUFFER_ADDRESS {
-    unsigned long long PageId;
-    PVOID BufferAddress;
+    
+    unsigned long long PacketId;
+    unsigned short CpuId;
+    unsigned SequenceId;
+    unsigned BufferSize;
+
+    struct PacketInformation
+    {
+        short FirstPacket : 1;
+        short LastPacket : 1;
+        short ExecutableTrace : 1;
+    };
+    
+    union {
+        PVOID BufferAddress;
+        PVOID ImageBaseAddress;
+    };
+
 } COMM_BUFFER_ADDRESS;
 
 

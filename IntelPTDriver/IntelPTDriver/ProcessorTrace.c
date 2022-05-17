@@ -167,6 +167,7 @@ IptClearTraceEn(
 NTSTATUS
 IptDisableTrace(
     PMDL *Mdl,
+    ULONG *BufferSize,
     INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 )
 {
@@ -183,11 +184,10 @@ IptDisableTrace(
 
     if(Mdl)
         *Mdl = CpuOptions->TopaMdl;
-    
+    if (BufferSize)
+        *BufferSize = outMask.Fields.OutputOffset;
+
     CpuOptions->RunningStatus = IPT_STATUS_DISABLED;
-
-    // TODO: Restore the old IPT state when disabling execution
-
 
     return STATUS_SUCCESS;
 }
@@ -235,6 +235,7 @@ IptResumeTrace(
 NTSTATUS 
 IptUnlinkFullTopaBuffers(
     PMDL* Mdl,
+    ULONG* DataSize,
     INTEL_PT_OUTPUT_OPTIONS* CpuOptions,
     BOOLEAN AllocateNewTopa
 )
@@ -272,9 +273,14 @@ IptUnlinkFullTopaBuffers(
         PtGetStatus(ptStatus);
         IA32_RTIT_OUTPUT_MASK_STRUCTURE outMask = { .Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS) };
         DEBUG_PRINT("IA32_RTIT_OUTPUT_MASK_PTRS Table Offset %d Output Offset %d status %X\n", outMask.Fields.MaskOrTableOffset, outMask.Fields.OutputOffset, ptStatus.Raw);
+        IA32_RTIT_OUTPUT_MASK_STRUCTURE mask;
+        mask.Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS);
 
         __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, CpuOptions->OutputMask.Raw);
         __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
+
+        if (DataSize)
+            *DataSize = mask.Fields.OutputOffset;
     }
     return status;
 }
