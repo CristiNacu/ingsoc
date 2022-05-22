@@ -75,7 +75,6 @@ PtwCommandTraceProcess(
     UNREFERENCED_PARAMETER(OutputBufferLength);
 
     NTSTATUS status;
-    DEBUG_STOP();
     status = PtwHookProcessCodeBase();
 
     return status;
@@ -114,7 +113,6 @@ PtwCommandGetBuffer(
 {
     UNREFERENCED_PARAMETER(InputBuffer);
     UNREFERENCED_PARAMETER(InputBufferLength);
-    DEBUG_STOP();
 
     if (OutputBufferLength != sizeof(COMM_BUFFER_ADDRESS))
     {
@@ -151,7 +149,6 @@ PtwCommandGetBuffer(
             *BytesWritten = 0;
             return status;
         }
-        DEBUG_STOP();
 
         status = DuDequeueElement(
             gQueueHead,
@@ -166,7 +163,6 @@ PtwCommandGetBuffer(
         return status;
     }
 
-    DEBUG_STOP();
     memcpy(((COMM_BUFFER_ADDRESS*)OutputBuffer), dto, sizeof(COMM_BUFFER_ADDRESS));
 
     if (!dto->Header.Options.FirstPacket)

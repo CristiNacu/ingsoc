@@ -409,9 +409,8 @@ PtwHookProcessExit(
     if (ProcessId != gProcessId)
         return;
 
-    DEBUG_STOP();
     PtwDisable();
-    DEBUG_STOP();
+
     status = PsRemoveCreateThreadNotifyRoutine(
         PtwHookThreadCreation
     );
@@ -443,7 +442,6 @@ PtwHookProcessExit(
     {
         DEBUG_PRINT("HalSetSystemInformation returned SUCCESS!!!!\n");
     }
-    DEBUG_STOP();
 
 
     gProcessId = 0;
@@ -529,9 +527,7 @@ PtwHookImageLoadCodeBase(
     {
         goto cleanup;
     }
-    
-    DEBUG_STOP();
-    
+        
     gProcessId = ProcessId;
 
     status = PsSetCreateThreadNotifyRoutineEx(
@@ -574,7 +570,7 @@ PtwHookImageLoadCodeBase(
     dto->Header.CpuId = 0;
     dto->Header.Options.FirstPacket = TRUE;
     dto->Header.Options.LastPacket = FALSE;
-    dto->BufferSize = 0;
+    dto->BufferSize = (unsigned long)ImageInfo->ImageSize;
     dto->Header.SequenceId = DuGetSequenceId();
     dto->Header.PacketId = DuGetPacketId();
 
@@ -867,8 +863,6 @@ PtwDpcPerCoreDisable(
     {
         KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
     }
-
-    DEBUG_STOP();
 
     return;
 }

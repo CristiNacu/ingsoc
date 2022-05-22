@@ -368,7 +368,6 @@ DuIncreaseSequenceId()
     if (status == STATUS_SUCCESS)
     {
         InterlockedIncrement((volatile long *)&gDriverData.SequenceIdCounter);
-        DEBUG_STOP();
     }
     else
         return FALSE;

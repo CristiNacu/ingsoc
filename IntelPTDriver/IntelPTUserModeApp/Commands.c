@@ -396,11 +396,11 @@ ThreadProc(
 	unsigned long long bufferId;
 	COMM_BUFFER_ADDRESS *packetInfo;
 	FILE* fileHandle;
-	DebugBreak();
+	//DebugBreak();
 
 	while (1 == 1)
 	{
-		DebugBreak();
+		//DebugBreak();
 
 		status = CommandGetBuffer(
 			&bufferId,
@@ -413,17 +413,17 @@ ThreadProc(
 
 		if (packetInfo->Header.Options.FirstPacket)
 		{
-			printf_s("[INFO] Sequence %d CPUID %d - first packet received. Image base %p\n", packetInfo->Header.SequenceId, 
-				packetInfo->Header.CpuId, packetInfo->Payload.ImageBaseAddress);
+			printf_s("[INFO] Sequence %d CPU %d - first packet received. Image base %p Buffer Size %lld\n", packetInfo->Header.SequenceId, 
+				packetInfo->Header.CpuId, packetInfo->Payload.ImageBaseAddress, packetInfo->BufferSize);
 			continue;
 		}
 
-		printf_s("[INFO] Sequence %d - packet %ld  CPUID %d. Buffer address %p\n",
+		printf_s("[INFO] Sequence %d - packet %ld  CPU %d. Buffer address %p Buffer Size %lld\n",
 			packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
-			packetInfo->Payload.BufferAddress);
+			packetInfo->Payload.BufferAddress, packetInfo->BufferSize);
 
 		char* iptBuffer = (char*)packetInfo->Payload.BufferAddress;
-		DebugBreak();
+		//DebugBreak();
 
 		status = KafkaSendMessage(
 			gApplicationGlobals->KafkaConfig.KafkaHandler,
@@ -468,7 +468,7 @@ ThreadProc(
 			bufferId
 		);
 	}
-	DebugBreak();
+	//DebugBreak();
 	return 0;
 }
 

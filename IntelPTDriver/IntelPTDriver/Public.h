@@ -41,7 +41,7 @@ typedef struct _COMM_BUFFER_ADDRESS {
     
     PACKET_HEADER_INFORMATION Header;
 
-    unsigned BufferSize;
+    unsigned long BufferSize;
     union {
         PVOID BufferAddress;
         PVOID ImageBaseAddress;

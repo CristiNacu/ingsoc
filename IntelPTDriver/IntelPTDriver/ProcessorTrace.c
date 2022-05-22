@@ -180,12 +180,14 @@ IptDisableTrace(
     PtGetStatus(ptStatus);
     IA32_RTIT_OUTPUT_MASK_STRUCTURE outMask = { .Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS) };
     DEBUG_PRINT("IA32_RTIT_OUTPUT_MASK_PTRS Table Offset %d Output Offset %d status %X\n", outMask.Fields.MaskOrTableOffset, outMask.Fields.OutputOffset, ptStatus.Raw);
-
+    DEBUG_PRINT("outMask.Fields.MaskOrTableOffset >> 8 = %lld\noutMask.Fields.OutputOffset = %lld\n", outMask.Fields.MaskOrTableOffset >> 8, outMask.Fields.OutputOffset);
 
     if(Mdl)
         *Mdl = CpuOptions->TopaMdl;
+    
+
     if (BufferSize)
-        *BufferSize = (ULONG)outMask.Fields.OutputOffset;
+        *BufferSize = (ULONG)outMask.Fields.OutputOffset + ((ULONG)(outMask.Fields.MaskOrTableOffset >> 8) * PAGE_SIZE);
 
     CpuOptions->RunningStatus = IPT_STATUS_DISABLED;
 
@@ -253,7 +255,6 @@ IptUnlinkFullTopaBuffers(
     if (!CpuOptions)
         return STATUS_INVALID_PARAMETER_2;
 
-
     mdl = CpuOptions->TopaMdl;
     *Mdl = CpuOptions->TopaMdl;
     if (AllocateNewTopa)
@@ -272,15 +273,15 @@ IptUnlinkFullTopaBuffers(
         IA32_RTIT_STATUS_STRUCTURE ptStatus;
         PtGetStatus(ptStatus);
         IA32_RTIT_OUTPUT_MASK_STRUCTURE outMask = { .Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS) };
-        DEBUG_PRINT("IA32_RTIT_OUTPUT_MASK_PTRS Table Offset %d Output Offset %d status %X\n", outMask.Fields.MaskOrTableOffset, outMask.Fields.OutputOffset, ptStatus.Raw);
-        IA32_RTIT_OUTPUT_MASK_STRUCTURE mask;
-        mask.Raw = __readmsr(IA32_RTIT_OUTPUT_MASK_PTRS);
+
+        DEBUG_PRINT("IA32_RTIT_OUTPUT_MASK_PTRS Table Offset %X Output Offset %X status %X\n", outMask.Fields.MaskOrTableOffset, outMask.Fields.OutputOffset, ptStatus.Raw);
+        DEBUG_PRINT("outMask.Fields.MaskOrTableOffset >> 8 = %lld\noutMask.Fields.OutputOffset = %lld\n", outMask.Fields.MaskOrTableOffset >> 8, outMask.Fields.OutputOffset);
+
+        if (DataSize)
+            *DataSize = (ULONG)outMask.Fields.OutputOffset + ((ULONG)(outMask.Fields.MaskOrTableOffset >> 8) * PAGE_SIZE);
 
         __writemsr(IA32_RTIT_OUTPUT_MASK_PTRS, CpuOptions->OutputMask.Raw);
         __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
-
-        if (DataSize)
-            *DataSize = (ULONG)mask.Fields.OutputOffset;
     }
     return status;
 }
@@ -444,7 +445,6 @@ IptAllocateNewTopaBuffer(
     PPFN_NUMBER pfnArray;
     PHYSICAL_ADDRESS lowAddress = { .QuadPart = 0 };
     PHYSICAL_ADDRESS highAddress = { .QuadPart = -1L };
-
     if (!Mdl)
         return STATUS_INVALID_PARAMETER_4;
 
@@ -464,7 +464,7 @@ IptAllocateNewTopaBuffer(
     char* buff = (char*)MmMapLockedPagesSpecifyCache(
         mdl,
         KernelMode,
-        MmCached,
+        MmNonCached,
         NULL,
         FALSE,
         NormalPagePriority
@@ -489,7 +489,7 @@ IptAllocateNewTopaBuffer(
         DEBUG_PRINT("New buffer in topa. Frame: %X\n", pfnArray[i]);
         TopaTableVa[i].OutputRegionBasePhysicalAddress = pfnArray[i];
         TopaTableVa[i].END = FALSE;
-        TopaTableVa[i].INT = (i == (EntriesCount - 1)) ? TRUE : FALSE;
+        TopaTableVa[i].INT = (i == (EntriesCount - 2)) ? TRUE : FALSE;
         TopaTableVa[i].STOP = FALSE;
         TopaTableVa[i].Size = Size4K;
     }
@@ -685,7 +685,7 @@ IptInitPerCore(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    outputOptions->TopaEntries = 10;
+    outputOptions->TopaEntries = DEFAULT_NUMBER_OF_TOPA_ENTRIES;
 
     status = IptInitOutputStructure(
         outputOptions
