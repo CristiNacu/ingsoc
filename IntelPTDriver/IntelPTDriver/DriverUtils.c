@@ -308,7 +308,7 @@ DuEnqueueElements(
     unsigned NumberOfElements,
     PVOID Elements[]
 )
-{
+{                                                                                   
     NTSTATUS status = STATUS_SUCCESS;
     for (unsigned i = 0; i < NumberOfElements; i++)
     {
@@ -324,6 +324,66 @@ DuEnqueueElements(
     }
 
     return status;
+}
+
+ULONG
+DuGetSequenceId()
+{
+    NTSTATUS status;
+    ULONG returnValue;
+
+    status = KeWaitForSingleObject(
+        &gDriverData.SequenceMutex, 
+        Executive,
+        KernelMode,
+        FALSE,
+        NULL);
+
+    if (status == STATUS_SUCCESS)
+        returnValue = gDriverData.SequenceIdCounter;
+    else
+    {
+        DEBUG_STOP();
+        return 0xDEADBEEF;
+    }
+    KeReleaseMutex(
+        &gDriverData.SequenceMutex,
+        FALSE
+    );
+
+    return returnValue;
+}
+
+BOOLEAN
+DuIncreaseSequenceId()
+{
+    NTSTATUS status;
+
+    status = KeWaitForSingleObject(
+        &gDriverData.SequenceMutex,
+        Executive,
+        KernelMode,
+        FALSE,
+        NULL);
+    if (status == STATUS_SUCCESS)
+    {
+        InterlockedIncrement((volatile long *)&gDriverData.SequenceIdCounter);
+        DEBUG_STOP();
+    }
+    else
+        return FALSE;
+    KeReleaseMutex(
+        &gDriverData.SequenceMutex,
+        FALSE
+    );
+    return TRUE;
+}
+
+ULONG
+DuGetPacketId()
+{
+    
+    return InterlockedIncrement((LONG *)&gDriverData.PacketIdCounter) - 1;
 }
 
 void

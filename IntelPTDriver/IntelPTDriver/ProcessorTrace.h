@@ -29,6 +29,7 @@ IptEnableTrace(
 NTSTATUS
 IptDisableTrace(
     PMDL* Mdl,
+    ULONG* BufferSize,
     INTEL_PT_OUTPUT_OPTIONS* CpuOptions
 );
 

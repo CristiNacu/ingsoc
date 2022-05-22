@@ -47,6 +47,11 @@ GatherConfigData(
         if (strstr(key, "bootstrap_server"))
         {
             char* cpyValue = malloc(sizeof(char) * strlen(value));
+            if (cpyValue == NULL)
+            {
+                printf_s("[ERROR] Failed to allocate memory for saving config values\n");
+                continue;
+            }
             memcpy(cpyValue, value, strlen(value) + 1);
             gApplicationGlobals->KafkaConfig.BootstrapServer = cpyValue;
             cpyValue = 0;

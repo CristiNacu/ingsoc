@@ -1,6 +1,5 @@
 #include "Globals.h"
 
-
 NTSTATUS
 CommandTest(
     PVOID   InParameter,
@@ -295,12 +294,12 @@ CommandGetBuffer(
 	COMMUNICATION_MESSAGE message;
 	DWORD bytesWritten;
 	OVERLAPPED* overlapped = NULL;
-	COMM_BUFFER_ADDRESS data;
+	COMM_BUFFER_ADDRESS *data = calloc(1, sizeof(COMM_BUFFER_ADDRESS));
 
 	message.MethodType = COMM_TYPE_GET_BUFFER;
 	message.DataIn = NULL;
 	message.DataInSize = 0;
-	message.DataOut = &data;
+	message.DataOut = data;
 	message.DataOutSize = sizeof(COMM_BUFFER_ADDRESS);
 	message.BytesWritten = &bytesWritten;
 
@@ -325,8 +324,8 @@ CommandGetBuffer(
 			goto cleanup;
 		}
 
-		*Buffer = data.BufferAddress;
-		*BufferId = data.PageId;
+		*Buffer = data;
+		*BufferId = data->Header.SequenceId;
 	}
 	else
 	{
@@ -383,6 +382,8 @@ CommandFreeBuffer(
 	return status;
 }
 
+
+
 DWORD
 WINAPI
 ThreadProc(
@@ -393,7 +394,7 @@ ThreadProc(
 
 	NTSTATUS status;
 	unsigned long long bufferId;
-	PVOID bufferAddr;
+	COMM_BUFFER_ADDRESS *packetInfo;
 	FILE* fileHandle;
 	DebugBreak();
 
@@ -403,19 +404,31 @@ ThreadProc(
 
 		status = CommandGetBuffer(
 			&bufferId,
-			&bufferAddr
+			&(PVOID)packetInfo
 		);
 		if (!SUCCEEDED(status))
 		{
 			continue;
 		}
 
-		char* buffAsByte = (char*)bufferAddr;
+		if (packetInfo->Header.Options.FirstPacket)
+		{
+			printf_s("[INFO] Sequence %d CPUID %d - first packet received. Image base %p\n", packetInfo->Header.SequenceId, 
+				packetInfo->Header.CpuId, packetInfo->Payload.ImageBaseAddress);
+			continue;
+		}
+
+		printf_s("[INFO] Sequence %d - packet %ld  CPUID %d. Buffer address %p\n",
+			packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
+			packetInfo->Payload.BufferAddress);
+
+		char* iptBuffer = (char*)packetInfo->Payload.BufferAddress;
+		DebugBreak();
 
 		status = KafkaSendMessage(
 			gApplicationGlobals->KafkaConfig.KafkaHandler,
 			"ana_are_mere",
-			bufferAddr,
+			iptBuffer,
 			10 * USN_PAGE_SIZE
 		);
 		if (status != CMC_STATUS_SUCCESS)
@@ -424,7 +437,7 @@ ThreadProc(
 		}
 		else
 		{
-			printf_s("[INFO] Sent buffer %p with size %ud to Kafka!\n", bufferAddr, 10 * USN_PAGE_SIZE);
+			printf_s("[INFO] Sent buffer %p with size %ud to Kafka!\n", iptBuffer, 10 * USN_PAGE_SIZE);
 		}
 		
 		fopen_s(
@@ -440,7 +453,7 @@ ThreadProc(
 
 		for (int i = 0; i < 10 * USN_PAGE_SIZE; i++)
 		{
-			fprintf(fileHandle, "%c", buffAsByte[i]);
+			fprintf(fileHandle, "%c", iptBuffer[i]);
 		}
 
 		if (!FlushFileBuffers(fileHandle))

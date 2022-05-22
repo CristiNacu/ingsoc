@@ -67,6 +67,11 @@ DuDumpMemory(
     unsigned Size
 );
 
+ULONG DuGetPacketId();
+ULONG DuGetSequenceId();
+BOOLEAN DuIncreaseSequenceId();
+
+
 QUEUE_HEAD_STRUCTURE*   gQueueHead;
 KEVENT                  gPagesAvailableEvent;
 KMUTEX                  gCommMutex;

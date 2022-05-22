@@ -185,7 +185,7 @@ IptDisableTrace(
     if(Mdl)
         *Mdl = CpuOptions->TopaMdl;
     if (BufferSize)
-        *BufferSize = outMask.Fields.OutputOffset;
+        *BufferSize = (ULONG)outMask.Fields.OutputOffset;
 
     CpuOptions->RunningStatus = IPT_STATUS_DISABLED;
 
@@ -280,7 +280,7 @@ IptUnlinkFullTopaBuffers(
         __writemsr(IA32_RTIT_OUTPUT_BASE, (unsigned long long)CpuOptions->TopaTablePa);
 
         if (DataSize)
-            *DataSize = mask.Fields.OutputOffset;
+            *DataSize = (ULONG)mask.Fields.OutputOffset;
     }
     return status;
 }
@@ -697,7 +697,7 @@ IptInitPerCore(
 
     if (IptEnabled())
     {
-        status = IptDisableTrace(NULL, outputOptions);
+        status = IptDisableTrace(NULL, NULL, outputOptions);
         if (!NT_SUCCESS(status))
         {
             DEBUG_PRINT("PtDisableTrace returned status %X\n", status);

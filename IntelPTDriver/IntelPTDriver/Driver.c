@@ -114,9 +114,17 @@ DriverEntry(
     
     config.EvtDriverUnload = DriverUnload;
     
+    gDriverData.PacketIdCounter = 0;
+    gDriverData.SequenceIdCounter = 0;
+
+
     // Set Driver constants
     gDriverData.IoCallbacks = DEFAULT_COMMAND_CALLBACKS;
 
+    KeInitializeMutex(
+        &gDriverData.SequenceMutex,
+        0
+    );
 
     // Create the driver object
     status = WdfDriverCreate(

@@ -26,8 +26,10 @@ CommunicationGetDriverHandle(
 		}
 		printf_s("[INFO] New driver handle %p\n", gApplicationGlobals->Ipt.gDriverHandle);
 	}
+	else {
+		printf_s("[INFO] Using old hanlde %p\n", gApplicationGlobals->Ipt.gDriverHandle);
+	}
 	*Handle = gApplicationGlobals->Ipt.gDriverHandle;
-	printf_s("[INFO] New driver handle %p\n", gApplicationGlobals->Ipt.gDriverHandle);
 
 	return status;
 }

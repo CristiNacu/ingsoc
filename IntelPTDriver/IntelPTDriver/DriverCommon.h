@@ -1,3 +1,4 @@
+#pragma once
 #ifndef _DRIVER_COMMON_H_
 #define _DRIVER_COMMON_H_
 
@@ -10,7 +11,6 @@
 #include "Public.h"
 #include "Debug.h"
 #include "ProcessorTraceShared.h"
-
 
 typedef struct _COMM_QUEUE_DEVICE_CONTEXT {
     PVOID            Data;
@@ -37,8 +37,13 @@ typedef struct _PER_CPU_DATA_STRUCTURE {
 typedef struct _DRIVER_GLOBAL_DATA {
 
     COMM_IO_COMMAND *IoCallbacks;
+    KMUTEX SequenceMutex;
+    volatile unsigned long SequenceIdCounter;
+    volatile unsigned long PacketIdCounter;
 
 } DRIVER_GLOBAL_DATA;
+
+
 DRIVER_GLOBAL_DATA gDriverData;
 
 

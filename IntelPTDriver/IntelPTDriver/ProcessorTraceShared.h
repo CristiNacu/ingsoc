@@ -260,20 +260,4 @@ typedef void (*IptMemoryDeallocationFunction)(
     void* PhysicalAddress
     );
 
-typedef
-struct
-    _PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO {
-
-    unsigned ProcessorNumber;
-    union {
-    PMDL BufferBaseAddress;
-    PVOID ImageBase;
-    };
-    unsigned long BufferLength;
-    unsigned long SequenceId;
-    BOOLEAN EndPacket;
-    BOOLEAN StartPacket;
-
-} PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO;
-
 #endif

@@ -124,7 +124,7 @@ PtwCommandGetBuffer(
     }
 
     PVOID address;
-    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto;
+    COMM_BUFFER_ADDRESS* dto;
     NTSTATUS status;
     PMDL mdl;
 
@@ -166,36 +166,36 @@ PtwCommandGetBuffer(
         return status;
     }
 
-    mdl = dto->BufferBaseAddress;
+    DEBUG_STOP();
+    memcpy(((COMM_BUFFER_ADDRESS*)OutputBuffer), dto, sizeof(COMM_BUFFER_ADDRESS));
 
-    address = MmMapLockedPagesSpecifyCache(
-        mdl,
-        UserMode,
-        MmCached,
-        NULL,
-        FALSE,
-        NormalPagePriority
-    );
-    if (!NT_SUCCESS(status))
+    if (!dto->Header.Options.FirstPacket)
     {
-        *OutputBuffer = NULL;
-        *BytesWritten = 0;
-        return status;
+        mdl = dto->Payload.BufferAddress;
+
+        address = MmMapLockedPagesSpecifyCache(
+            mdl,
+            UserMode,
+            MmCached,
+            NULL,
+            FALSE,
+            NormalPagePriority
+        );
+        if (!NT_SUCCESS(status))
+        {
+            *OutputBuffer = NULL;
+            *BytesWritten = 0;
+            return status;
+        }
+
+        ((COMM_BUFFER_ADDRESS*)OutputBuffer)->Payload.BufferAddress = address;
     }
 
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferAddress = address;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->BufferSize = dto->BufferLength;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->CpuId = dto->ProcessorNumber;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->FirstPacket = FALSE;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->LastPacket = dto->EndPacket;
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->SequenceId = dto->SequenceId;
-
-    ((COMM_BUFFER_ADDRESS*)OutputBuffer)->SequenceId = 0;       // TODO: Generate page id, transform array into linked list
     *BytesWritten = sizeof(COMM_BUFFER_ADDRESS);
 
     ExFreePoolWithTag(
         (PVOID)dto,
-        "ffuB"
+        'ffuB'
     );
 
     return status;

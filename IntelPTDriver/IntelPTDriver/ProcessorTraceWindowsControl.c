@@ -473,6 +473,9 @@ PtwHookImageLoadCr3(
         goto cleanup;
     }
 
+    DuIncreaseSequenceId();
+    gDriverData.PacketIdCounter = 0;
+
     gProcessId = ProcessId;
     PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
     PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
@@ -540,6 +543,8 @@ PtwHookImageLoadCodeBase(
         return;
     }
 
+    DuIncreaseSequenceId();
+    gDriverData.PacketIdCounter = 0;
 
     PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
     PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
@@ -553,23 +558,25 @@ PtwHookImageLoadCodeBase(
     gImageBasePaStart = ImageInfo->ImageBase;
     gImageBasePaEnd = (PVOID)((char *)ImageInfo->ImageBase + ImageInfo->ImageSize);
 
-    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto =
-        (PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO*)ExAllocatePoolWithTag(
+    COMM_BUFFER_ADDRESS* dto =
+        (COMM_BUFFER_ADDRESS*)ExAllocatePoolWithTag(
             NonPagedPool,
-            sizeof(PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO),
-            "ffuB"
+            sizeof(COMM_BUFFER_ADDRESS),
+            'ffuB'
         );
     if (!dto)
     {
-        return STATUS_INSUFFICIENT_RESOURCES;
+        return;
     }
 
-    dto->ImageBase = gImageBasePaStart;
-    dto->ProcessorNumber = 0;
-    dto->StartPacket = TRUE;
-    dto->EndPacket = FALSE;
-    dto->BufferLength = 0;
-    dto->SequenceId = 0; // TODO
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
+    dto->Payload.ImageBaseAddress = gImageBasePaStart;
+    dto->Header.CpuId = 0;
+    dto->Header.Options.FirstPacket = TRUE;
+    dto->Header.Options.LastPacket = FALSE;
+    dto->BufferSize = 0;
+    dto->Header.SequenceId = DuGetSequenceId();
+    dto->Header.PacketId = DuGetPacketId();
 
     DuEnqueueElement(
         gQueueHead,
@@ -631,23 +638,27 @@ IptDpc(
         return;
     }
 
-    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto = 
-        (PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO*)ExAllocatePoolWithTag(
+    COMM_BUFFER_ADDRESS* dto =
+        (COMM_BUFFER_ADDRESS*)ExAllocatePoolWithTag(
             NonPagedPool,
-            sizeof(PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO),
-            "ffuB"
+            sizeof(COMM_BUFFER_ADDRESS),
+            'ffuB'
         );
     
     if (!dto)
     {
-        return STATUS_INSUFFICIENT_RESOURCES;
+        return;
     }
 
-    dto->ProcessorNumber = KeGetCurrentProcessorNumber();
-    dto->BufferLength = bufferSize;
-    dto->BufferBaseAddress = mdl;
-    dto->SequenceId = 0; // TODO
-    dto->EndPacket = FALSE;
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
+    dto->BufferSize = bufferSize;
+    dto->Payload.BufferAddress = mdl;
+
+    dto->Header.SequenceId = DuGetSequenceId();
+    dto->Header.PacketId = DuGetPacketId();
+
+    dto->Header.Options.LastPacket = FALSE;
+    dto->Header.Options.FirstPacket = FALSE;
 
     status = DuEnqueueElement(
         gQueueHead,
@@ -825,22 +836,24 @@ PtwDpcPerCoreDisable(
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
     );
 
-    PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO* dto =
-        (PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO*)ExAllocatePoolWithTag(
+    COMM_BUFFER_ADDRESS* dto =
+        (COMM_BUFFER_ADDRESS*)ExAllocatePoolWithTag(
             NonPagedPool,
-            sizeof(PROCESSOR_TRACE_WINDOWS_COMMANDS_DTO),
-            "ffuB"
+            sizeof(COMM_BUFFER_ADDRESS),
+            'ffuB'
         );
     if (!dto)
     {
-        return STATUS_INSUFFICIENT_RESOURCES;
+        return;
     }
 
-    dto->ProcessorNumber = KeGetCurrentProcessorNumber();
-    dto->BufferLength = bufferSize;
-    dto->BufferBaseAddress = mdl;
-    dto->SequenceId = 0; // TODO
-    dto->EndPacket = FALSE;
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
+    dto->BufferSize = bufferSize;
+    dto->Payload.BufferAddress = mdl;
+    dto->Header.PacketId = DuGetPacketId();
+    dto->Header.SequenceId = DuGetSequenceId();
+    dto->Header.Options.FirstPacket = FALSE;
+    dto->Header.Options.LastPacket = TRUE;
 
     status = DuEnqueueElement(
         gQueueHead,
