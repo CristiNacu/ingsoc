@@ -37,6 +37,7 @@ PACKET_LAST_MASK    = 0b010
 SEQUENCE_INTERPRETERS = {}
 PACKET_ORDER_LISTS = {}
 
+
 def parser(bytes, interpretor : PacketInterpretor, sequence_id: int , packet_id: int, cpu_id: int):
     if sequence_id not in PACKET_ORDER_LISTS.keys():
         PACKET_ORDER_LISTS[sequence_id] = {"last_packet_id": 0, "out_of_order_packets" : []}
