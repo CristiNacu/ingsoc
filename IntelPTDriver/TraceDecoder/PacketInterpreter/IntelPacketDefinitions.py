@@ -86,7 +86,7 @@ packet_definitions = [
         "packet_name" : "TSC",
         "packet_header" : ["00011001"],
         "packet_length" : 8,
-        "handle" : placeholder_function  
+        "handle" : tsc_packet_handler  
     },
     {
         "packet_name" : "MTC",
@@ -120,7 +120,7 @@ packet_definitions = [
     },
     {
         "packet_name" : "PSB",
-        "packet_header" : ["00000010", "10000010"] * 8,
+        "packet_header" : ["00000010", "10000010"] * 7,
         "packet_length" : 16,
         "handle" : psb_packet_handler  
     },

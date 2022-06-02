@@ -104,6 +104,7 @@ DriverEntry(
 
     WDFDEVICE device;
     WDFQUEUE defaultQueue = {0};
+    LARGE_INTEGER processorFrequency;
 
     // Initialize the driver configuration object to register the
     // entry point for the EvtDeviceAdd callback, KmdfHelloWorldEvtDeviceAdd
@@ -115,6 +116,8 @@ DriverEntry(
     gDriverData.PacketIdCounter = 0;
     gDriverData.SequenceIdCounter = 0;
 
+    KeQueryPerformanceCounter(&processorFrequency);
+    gDriverData.ProcessorFrequency = processorFrequency.QuadPart;
 
     // Set Driver constants
     gDriverData.IoCallbacks = DEFAULT_COMMAND_CALLBACKS;

@@ -4,15 +4,21 @@ def placeholder_function(packet_data, packet_name, context):
     print(f"Intercepted {packet_name} with default handler")
     return PacketBase(PACKET_UNDEFINED)
 
+def tsc_packet_handler(packet_data, packet_name, context):
+    packet = PacketTsc(packet_data)
+    
+    context["tsc"] = packet.tsc
+    return packet 
+
 def psb_packet_handler(packet_data, packet_name, context):
     print(f"Intercepted PSB")
     context["disable_interpreting"] = True
-    return PacketBase(PACKET_PSB)
+    return PacketBase(PACKET_PSB, context["tsc"])
 
 def psbend_packet_handler(packet_data, packet_name, context):
     print(f"Intercepted PSBEND")
     context["disable_interpreting"] = False
-    return PacketBase(PACKET_PSBEND)
+    return PacketBase(PACKET_PSBEND, context["tsc"])
 
 def tnt_packet_handler(packet_data, packet_name, context) -> PacketBase:
     # TODO: Support large TNT packets
@@ -32,9 +38,9 @@ def tnt_packet_handler(packet_data, packet_name, context) -> PacketBase:
     while idx < 8:
         
         if aux_data & 1 << 8:
-            jump_sequence.append(PacketTnt(True))
+            jump_sequence.append(PacketTnt(True, context["tsc"]))
         else:
-            jump_sequence.append(PacketTnt(False))
+            jump_sequence.append(PacketTnt(False, context["tsc"]))
 
         idx += 1
         aux_data <<= 1
@@ -54,13 +60,13 @@ SIGN_EXTEND_MASK = {
 
 def fup_tip_packet_handler(packet_data, packet_name, context) -> PacketBase:
     if packet_name == "FUP":
-        packet = PacketFup()
+        packet = PacketFup(tsc = context["tsc"])
     elif packet_name == "TIP":
-        packet = PacketTip()
+        packet = PacketTip(tsc = context["tsc"])
     elif packet_name == "TIP PGE":
-        packet = PacketTipPge()
+        packet = PacketTipPge(tsc = context["tsc"])
     elif packet_name == "TIP PGD":
-        packet = PacketTipPgd()
+        packet = PacketTipPgd(tsc = context["tsc"])
     else:
         raise Exception("Unknown packet name")
 
@@ -94,10 +100,10 @@ def fup_tip_packet_handler(packet_data, packet_name, context) -> PacketBase:
 
 
 def mode_packet_handler(packet_data, packet_name, context):
-    packet = PacketMode(packet_data[1])
+    packet = PacketMode(packet_data[1], context["tsc"])
     if packet.type == "Exec":
         context["addressing_mode"] = packet.opmode
     return packet
 
 def cbr_packet_handler(packet_data, packet_name, context):
-    return PacketCbr(packet_data[2:]) 
+    return PacketCbr(packet_data[2:], context["tsc"]) 

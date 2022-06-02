@@ -4,7 +4,7 @@ from PacketInterpreter.IntelPacketDefinitions import packet_definitions, unused_
 
 class PacketInterpretor:
     
-    def __init__(self) -> None:
+    def __init__(self, processor_frequency: int = None, image_base: int = None, image_size: int = None) -> None:
 
         # Counter for the current byte
         self.__internal_byte_idx = 0
@@ -26,8 +26,11 @@ class PacketInterpretor:
         # Number of bytes in the current packet
         self.__current_packet_length = 0
         # Context for hanlders to maintain data inside
-        self.__context = {"disable_interpreting": False}
+        self.__context = {"disable_interpreting": False, "tsc": None}
 
+        self.__proc_frequency = processor_frequency
+        self.__img_base =  image_base
+        self.__img_size = image_size
 
     def __validate_header_byte(self, data_byte : int, header_definition : Any) -> bool:
         """

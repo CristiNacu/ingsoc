@@ -364,7 +364,7 @@ PtwHookThreadCreation(
             .PacketCyc = {0},
             .PacketPtw = {0},
             .PacketPwr = {0},
-            .PacketTsc.Enable = FALSE,
+            .PacketTsc.Enable = TRUE,
             .PackteMtc = {0},
             .Misc = {
                 .PsbFrequency = Freq4K,
@@ -565,14 +565,17 @@ PtwHookImageLoadCodeBase(
         return;
     }
 
-    dto->Header.CpuId = KeGetCurrentProcessorNumber();
-    dto->Payload.ImageBaseAddress = gImageBasePaStart;
-    dto->Header.CpuId = 0;
+    dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
     dto->Header.Options.FirstPacket = TRUE;
     dto->Header.Options.LastPacket = FALSE;
-    dto->BufferSize = (unsigned long)ImageInfo->ImageSize;
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
     dto->Header.SequenceId = DuGetSequenceId();
     dto->Header.PacketId = DuGetPacketId();
+
+    dto->Payload.FirstPacket.ImageBaseAddress = gImageBasePaStart;
+    dto->Payload.FirstPacket.ProcessorFrequency = gDriverData.ProcessorFrequency;
+    dto->Payload.FirstPacket.ImageSize = (unsigned long)ImageInfo->ImageSize;
+
 
     DuEnqueueElement(
         gQueueHead,
@@ -646,15 +649,17 @@ IptDpc(
         return;
     }
 
-    dto->Header.CpuId = KeGetCurrentProcessorNumber();
-    dto->BufferSize = bufferSize;
-    dto->Payload.BufferAddress = mdl;
 
+    dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
     dto->Header.SequenceId = DuGetSequenceId();
     dto->Header.PacketId = DuGetPacketId();
-
     dto->Header.Options.LastPacket = FALSE;
     dto->Header.Options.FirstPacket = FALSE;
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
+
+    dto->Payload.GenericPacket.BufferSize = bufferSize;
+    dto->Payload.GenericPacket.BufferAddress = mdl;
+
 
     status = DuEnqueueElement(
         gQueueHead,
@@ -843,13 +848,15 @@ PtwDpcPerCoreDisable(
         return;
     }
 
-    dto->Header.CpuId = KeGetCurrentProcessorNumber();
-    dto->BufferSize = bufferSize;
-    dto->Payload.BufferAddress = mdl;
-    dto->Header.PacketId = DuGetPacketId();
-    dto->Header.SequenceId = DuGetSequenceId();
+    dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
     dto->Header.Options.FirstPacket = FALSE;
     dto->Header.Options.LastPacket = TRUE;
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
+    dto->Header.PacketId = DuGetPacketId();
+    dto->Header.SequenceId = DuGetSequenceId();
+
+    dto->Payload.GenericPacket.BufferSize = bufferSize;
+    dto->Payload.GenericPacket.BufferAddress = mdl;
 
     status = DuEnqueueElement(
         gQueueHead,

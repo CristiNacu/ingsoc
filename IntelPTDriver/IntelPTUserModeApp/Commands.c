@@ -395,7 +395,9 @@ ThreadProc(
 	NTSTATUS status;
 	unsigned long long bufferId;
 	COMM_BUFFER_ADDRESS *packetInfo;
+	unsigned long packetSize;
 	FILE* fileHandle;
+	KAFKA_PACKET* packet;
 	//DebugBreak();
 
 	while (1 == 1)
@@ -413,34 +415,70 @@ ThreadProc(
 
 		if (packetInfo->Header.Options.FirstPacket)
 		{
-			printf_s("[INFO] Sequence %d CPU %d - first packet received. Image base %p Buffer Size %lld\n", packetInfo->Header.SequenceId, 
-				packetInfo->Header.CpuId, packetInfo->Payload.ImageBaseAddress, packetInfo->BufferSize);
-			continue;
-		}
+			packetSize = sizeof(KAFKA_PACKET_FIRST);
+			KAFKA_PACKET_FIRST *packetFirst = (KAFKA_PACKET_FIRST*)calloc(1, packetSize);
+			if (packetFirst == NULL)
+			{
+				printf_s("[ERROR] Cannot allocate kafka packet!\n");
+				return;
+			}
+			memcpy(packetFirst, &(packetInfo->Header), sizeof(PACKET_HEADER_INFORMATION));
 
-		printf_s("[INFO] Sequence %d - packet %ld  CPU %d. Buffer address %p Buffer Size %lld\n",
-			packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
-			packetInfo->Payload.BufferAddress, packetInfo->BufferSize);
+			packetFirst->ImageBaseAddress = packetInfo->Payload.FirstPacket.ImageBaseAddress;
+			packetFirst->ImageSize = packetInfo->Payload.FirstPacket.ImageSize;
+			packetFirst->ProcessorFrequency = packetInfo->Payload.FirstPacket.ProcessorFrequency;
 
-		char* iptBuffer = (char*)packetInfo->Payload.BufferAddress;
-		//DebugBreak();
+			printf_s("[INFO] Sequence %d CPU %d - first packet received. Image base %p Buffer Size %ul\n", packetFirst->Header.SequenceId,
+				packetFirst->Header.CpuId, packetFirst->ImageBaseAddress, packetFirst->ImageSize);
 
-		status = KafkaSendMessage(
-			gApplicationGlobals->KafkaConfig.KafkaHandler,
-			"ana_are_mere",
-			iptBuffer,
-			10 * USN_PAGE_SIZE
-		);
-		if (status != CMC_STATUS_SUCCESS)
-		{
-			printf_s("[ERROR] Could not send message to kafka!\n");
+			packet = (KAFKA_PACKET*)packetFirst;
+
 		}
 		else
 		{
-			printf_s("[INFO] Sent buffer %p with size %ud to Kafka!\n", iptBuffer, 10 * USN_PAGE_SIZE);
+			char* iptBuffer = (char*)packetInfo->Payload.GenericPacket.BufferAddress;
+			packetSize = sizeof(KAFKA_PACKET) - 1 + 10 * USN_PAGE_SIZE;
+			packet = (KAFKA_PACKET*)calloc(1, packetSize);
+			if (packet == NULL)
+			{
+				printf_s("[ERROR] Cannot allocate kafka packet!\n");
+				return;
+			}
+
+			memcpy(packet, &(packetInfo->Header), sizeof(PACKET_HEADER_INFORMATION));
+			memcpy(&(packet->Data), iptBuffer, 10 * USN_PAGE_SIZE);
+
+			if (packetInfo->Header.Options.LastPacket)
+			{
+				printf_s("[INFO] Sequence %d - packet %ld  CPU %d Last Packet. Buffer address %p Buffer Size %lld Packet h size %d\n",
+					packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
+					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize, packet->Header.HeaderSize);
+			}
+			else
+			{
+				printf_s("[INFO] Sequence %d - packet %ld  CPU %d. Buffer address %p Buffer Size %lld Packet h size %d\n",
+					packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
+					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize, packet->Header.HeaderSize);
+			}
 		}
+
 		
-		fopen_s(
+		status = KafkaSendMessage(
+			gApplicationGlobals->KafkaConfig.KafkaHandler,
+			"ana_are_mere",
+			packet,
+			packetSize
+		);
+		//if (status != CMC_STATUS_SUCCESS)
+		//{
+		//	printf_s("[ERROR] Could not send message to kafka!\n");
+		//}
+		//else
+		//{
+		//	printf_s("[INFO] Sent buffer %p with size %ud to Kafka!\n", iptBuffer, 10 * USN_PAGE_SIZE);
+		//}
+		
+		/*fopen_s(
 			&fileHandle,
 			"ProcessorTrace",
 			"a"
@@ -453,7 +491,7 @@ ThreadProc(
 
 		for (int i = 0; i < 10 * USN_PAGE_SIZE; i++)
 		{
-			fprintf(fileHandle, "%c", iptBuffer[i]);
+			fprintf(fileHandle, "%c", (char*)packet[i]);
 		}
 
 		if (!FlushFileBuffers(fileHandle))
@@ -461,7 +499,7 @@ ThreadProc(
 			printf("Could not flush file buffers\n");
 		}
 		fclose(fileHandle);
-		printf("Written bytes\n");
+		printf("Written bytes\n");*/
 
 
 		status = CommandFreeBuffer(

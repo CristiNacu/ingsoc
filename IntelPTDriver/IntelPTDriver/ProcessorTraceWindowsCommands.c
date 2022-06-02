@@ -167,7 +167,7 @@ PtwCommandGetBuffer(
 
     if (!dto->Header.Options.FirstPacket)
     {
-        mdl = dto->Payload.BufferAddress;
+        mdl = dto->Payload.GenericPacket.BufferAddress;
 
         address = MmMapLockedPagesSpecifyCache(
             mdl,
@@ -184,7 +184,7 @@ PtwCommandGetBuffer(
             return status;
         }
 
-        ((COMM_BUFFER_ADDRESS*)OutputBuffer)->Payload.BufferAddress = address;
+        ((COMM_BUFFER_ADDRESS*)OutputBuffer)->Payload.GenericPacket.BufferAddress = address;
     }
 
     *BytesWritten = sizeof(COMM_BUFFER_ADDRESS);

@@ -40,6 +40,7 @@ typedef struct _DRIVER_GLOBAL_DATA {
     KMUTEX SequenceMutex;
     volatile unsigned long SequenceIdCounter;
     volatile unsigned long PacketIdCounter;
+    unsigned long long ProcessorFrequency;
 
 } DRIVER_GLOBAL_DATA;
 

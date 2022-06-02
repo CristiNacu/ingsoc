@@ -24,7 +24,10 @@ typedef struct _COMM_DATA_SETUP_IPT {
     unsigned long long BufferSize;
 } COMM_DATA_SETUP_IPT;
 
+#pragma pack(push, 1)
+
 typedef struct _PACKET_HEADER_INFORMATION {
+    unsigned HeaderSize;
     unsigned long long PacketId;
     unsigned CpuId;
     unsigned SequenceId;
@@ -41,14 +44,34 @@ typedef struct _COMM_BUFFER_ADDRESS {
     
     PACKET_HEADER_INFORMATION Header;
 
-    unsigned long BufferSize;
     union {
-        PVOID BufferAddress;
-        PVOID ImageBaseAddress;
+        struct {
+            PVOID BufferAddress;
+            unsigned long BufferSize;
+        } GenericPacket;
+        struct {
+            PVOID ImageBaseAddress;
+            unsigned long ImageSize;
+            ULONGLONG ProcessorFrequency;
+        } FirstPacket;
+
     } Payload;
 
 } COMM_BUFFER_ADDRESS;
 
+typedef struct _KAFKA_PACKET {
+    PACKET_HEADER_INFORMATION Header;
+    char Data[1];
+} KAFKA_PACKET;
+
+typedef struct _KAFKA_PACKET_FIRST {
+    PACKET_HEADER_INFORMATION Header;
+    PVOID ImageBaseAddress;
+    ULONG ImageSize;
+    ULONGLONG ProcessorFrequency;
+} KAFKA_PACKET_FIRST;
+
+#pragma pack(pop)
 
 #define UM_TEST_MAGIC                       0x1234
 #define KM_TEST_MAGIC                       0x4321

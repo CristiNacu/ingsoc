@@ -11,7 +11,8 @@ PACKET_CBR = 7
 PACKET_MODE = 8
 PACKET_PSB = 9
 PACKET_PSBEND = 10
-PACKET_UNDEFINED = 11
+PACKET_TSC = 11
+PACKET_UNDEFINED = 12
 
 PACKET_ID_TO_STRING = {
     PACKET_TNT_TAKEN: "PACKET_TNT_TAKEN",
@@ -24,23 +25,25 @@ PACKET_ID_TO_STRING = {
     PACKET_MODE: "PACKET_MODE",
     PACKET_PSB : "PSB",
     PACKET_PSBEND : "PSBEND",
+    PACKET_TSC : "TSC",
     PACKET_UNDEFINED : "PACKET_UNDEFINED"
 }
 
 class PacketBase:
-    def __init__(self, packet_type : int) -> None:
-        self.pkacet_id = packet_type
+    def __init__(self, packet_type : int, tsc : int = None) -> None:
+        self.packet_id = packet_type
+        self.tsc = tsc
 
     def __str__(self) -> str:
         return json.dumps(self.__dict__, indent=4)
 
 class PacketTnt(PacketBase):
-    def __init__(self, taken : bool) -> None:
-        super().__init__(PACKET_TNT_TAKEN if taken else PACKET_TNT_NOT_TAKEN)
+    def __init__(self, taken : bool, tsc : int) -> None:
+        super().__init__(PACKET_TNT_TAKEN if taken else PACKET_TNT_NOT_TAKEN, tsc)
     
 class PacketTip(PacketBase):
-    def __init__(self, packet_type: int = PACKET_TIP) -> None:
-        super().__init__(packet_type)
+    def __init__(self, packet_type: int = PACKET_TIP, tsc: int = None) -> None:
+        super().__init__(packet_type, tsc)
         self.type = 0
         self.address = None
 
@@ -59,22 +62,34 @@ class PacketTip(PacketBase):
             return self.__dict__[__name]
 
 class PacketTipPge(PacketTip):
-    def __init__(self) -> None:
-        super().__init__(PACKET_TIP_PGE)
+    def __init__(self, tsc) -> None:
+        super().__init__(PACKET_TIP_PGE, tsc)
 
 class PacketTipPgd(PacketTip):
-    def __init__(self) -> None:
-        super().__init__(PACKET_TIP_PGD)
+    def __init__(self, tsc) -> None:
+        super().__init__(PACKET_TIP_PGD, tsc)
 
 class PacketFup(PacketTip):
-    def __init__(self) -> None:
-        super().__init__(PACKET_FUP)
+    def __init__(self, tsc) -> None:
+        super().__init__(PACKET_FUP, tsc)
 
-
-
-class PacketCbr(PacketBase):
+class PacketTsc(PacketBase):
     def __init__(self, data) -> None:
-        super().__init__(PACKET_CBR)
+        super().__init__(PACKET_TSC)
+
+        packet_data = data[1:][::-1]
+        self.tsc = 0
+        for d in packet_data:
+            self.tsc += d
+            self.tsc <<= 8
+        self.tsc >>= 8
+    def __getattr__(self, __name: str):
+        if __name not in self.__dict__.keys():
+            raise AttributeError("No such attribute")
+        return self.__dict__[__name]    
+class PacketCbr(PacketBase):
+    def __init__(self, data, tsc) -> None:
+        super().__init__(PACKET_CBR, tsc)
 
         self.cbr = data[0]
 
@@ -89,8 +104,8 @@ class PacketMode(PacketBase):
         0b001 : "TSX"
     }
     
-    def __init__(self, data) -> None:
-        super().__init__(PACKET_MODE)
+    def __init__(self, data, tsc) -> None:
+        super().__init__(PACKET_MODE, tsc)
         
         type = data >> 5 & 0b0111
 
