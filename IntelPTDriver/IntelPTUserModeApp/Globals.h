@@ -11,6 +11,7 @@ typedef struct _IPT_CONFIG_STRUCT {
 
     struct {
         char* BootstrapServer;
+        char* KafkaTopicName;
         KAFKA_HANDLER KafkaHandler;
     } KafkaConfig;
 

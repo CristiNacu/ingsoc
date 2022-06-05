@@ -172,4 +172,6 @@ class PacketInterpretor:
             self.__header_index = 0
 
     def get_succession(self) -> list:
-        return self.__succession
+        aux = self.__succession
+        self.__succession = []
+        return aux

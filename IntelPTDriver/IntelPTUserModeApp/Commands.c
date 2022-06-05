@@ -465,7 +465,7 @@ ThreadProc(
 		
 		status = KafkaSendMessage(
 			gApplicationGlobals->KafkaConfig.KafkaHandler,
-			"ana_are_mere",
+			gApplicationGlobals->KafkaConfig.KafkaTopicName,
 			packet,
 			packetSize
 		);

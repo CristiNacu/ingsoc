@@ -41,9 +41,6 @@ GatherConfigData(
         char *key = TrimString(strtok(buffer, "=\n"));
         char* value = TrimString(strtok(NULL, "=\n"));
 
-        printf("key %s\n", key);
-        printf("value %s\n", value);
-
         if (strstr(key, "bootstrap_server"))
         {
             char* cpyValue = malloc(sizeof(char) * strlen(value));
@@ -54,6 +51,20 @@ GatherConfigData(
             }
             memcpy(cpyValue, value, strlen(value) + 1);
             gApplicationGlobals->KafkaConfig.BootstrapServer = cpyValue;
+            printf_s("[INFO] Set kafka bootstrap server to %s\n", gApplicationGlobals->KafkaConfig.BootstrapServer);
+            cpyValue = 0;
+        }
+        else if (strstr(key, "topic_name"))
+        {
+            char* cpyValue = malloc(sizeof(char) * strlen(value));
+            if (cpyValue == NULL)
+            {
+                printf_s("[ERROR] Failed to allocate memory for saving config values\n");
+                continue;
+            }
+            memcpy(cpyValue, value, strlen(value) + 1);
+            gApplicationGlobals->KafkaConfig.KafkaTopicName = cpyValue;
+            printf_s("[INFO] Set kafka topic to %s\n", gApplicationGlobals->KafkaConfig.KafkaTopicName);
             cpyValue = 0;
         }
     }

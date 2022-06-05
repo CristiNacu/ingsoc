@@ -91,10 +91,11 @@ def read_trace(file_path: str):
         header_values = unpack(PACKET_HEADER_STRUCT, header_bytes)
         
         # header_size = header_values[0]
-        packet_id = header_values[1]
+        packet_id_number = header_values[1]
         cpu_id = header_values[2]
         sequence_id = header_values[3]
         options = header_values[4] 
+        print(f"SEQUENCE {sequence_id} PACKET {packet_id_number} CPU ID {cpu_id}")
 
         packet_type = "FIRST" if (options & PACKET_FIRST_MASK) != 0 else ("LAST" if (options & PACKET_LAST_MASK) != 0 else "DATA")
 
@@ -109,17 +110,19 @@ def read_trace(file_path: str):
             if sequence_id in SEQUENCE_INTERPRETERS.keys():
                 print(f"[WARNING] An interpreter for sequence ID {sequence_id} already exists. Overwriting...")
             SEQUENCE_INTERPRETERS[sequence_id] = PacketInterpretor(processor_frequency, image_base_address, image_size)
+            PACKET_ORDER_LISTS[sequence_id] = {"last_packet_id": 0, "out_of_order_packets" : []}
+
+            # print(json.dumps(interpretor.get_succession(), indent = 4))
+            packets = {}
+            ips = []
+            first_tsc = -1
+            last_tsc = -1
+            packets_by_time = {}
 
             print(f"Image base address {image_base_address} image size {image_size} processor frequency {processor_frequency}")
         else:
-            parser(msg[PACKET_HEADER_STRUCT_SIZE:], interpretor, sequence_id, packet_id, cpu_id)
+            parser(msg[PACKET_HEADER_STRUCT_SIZE:], interpretor, sequence_id, packet_id_number, cpu_id)
 
-        # print(json.dumps(interpretor.get_succession(), indent = 4))
-        packets = {}
-        ips = []
-        first_tsc = -1
-        last_tsc = -1
-        packets_by_time = {}
 
         for el in interpretor.get_succession():
             # print(str(el))
@@ -140,40 +143,55 @@ def read_trace(file_path: str):
                     first_tsc = el.tsc
                 last_tsc = el.tsc
 
-            if el.tsc not in packets_by_time.keys():
-                packets_by_time[el.tsc] = {}
+            if el.tsc is not None:
+                time_in_sec_relative_to_trace_start = ((el.tsc - first_tsc) / processor_frequency)
+            else:
+               time_in_sec_relative_to_trace_start = 0 
+            if el.tsc < first_tsc:
+                print("akscjhcgvas")
+                pass
+
+            if time_in_sec_relative_to_trace_start not in packets_by_time.keys():
+                packets_by_time[time_in_sec_relative_to_trace_start] = {}
             
-            if PACKET_ID_TO_STRING[el.packet_id] not in packets_by_time[el.tsc].keys():
-                packets_by_time[el.tsc][PACKET_ID_TO_STRING[el.packet_id]] = 0
+            if PACKET_ID_TO_STRING[el.packet_id] not in packets_by_time[time_in_sec_relative_to_trace_start].keys():
+                packets_by_time[time_in_sec_relative_to_trace_start][PACKET_ID_TO_STRING[el.packet_id]] = 0
 
-            packets_by_time[el.tsc][PACKET_ID_TO_STRING[el.packet_id]] += 1
-
-
-
+            packets_by_time[time_in_sec_relative_to_trace_start][PACKET_ID_TO_STRING[el.packet_id]] += 1
 
         if gCrtPlt is not None:
             plt.close(gCrtPlt)
         
-        print(json.dumps(packets, indent=4))  
+        # print(json.dumps(packets, indent=4))  
         print(json.dumps(packets_by_time, indent=4))  
-        print(f"TRACED TIME {(last_tsc - first_tsc) / processor_frequency} SECONDS")
+        # print(f"TRACED TIME {(last_tsc - first_tsc) / processor_frequency} SECONDS")
 
         plt.xticks(rotation=45)
 
-        gCrtPlt, axis = plt.subplots(1, 2)
+        gCrtPlt, axis = plt.subplots(2, 4)
         gCrtPlt.set_size_inches(15.5, 9.5, forward=True)
         
         # For Sine Function
-        axis[0].bar(packets.keys(), packets.values())
-        axis[0].set_title("Packet distribution")
+        axis[0][0].bar(packets.keys(), packets.values())
+        axis[0][0].set_title("Packet distribution")
 
         if ips != []:
             x = np.array(ips).reshape(-1, 1)
             y = np.zeros_like(ips)
             
-            axis[1].scatter(x, y)
-            axis[1].set_title("Address distribution")
-            plt.pause(1)
+            axis[0][1].scatter(x, y)
+        axis[0][1].set_title("Address distribution")
+
+        k = 2
+        for packet_id in ["PACKET_TIP_PGE", "PACKET_TIP_PGD", "PACKET_TNT_TAKEN", "PACKET_TNT_NOT_TAKEN", "PACKET_FUP"]:
+            au = [(packets_by_time[el][packet_id] if packet_id in packets_by_time[el].keys() else 0) for el in packets_by_time.keys()]
+            axis[k // 4][k % 4].plot(packets_by_time.keys(), au)
+            axis[k // 4][k % 4].set_title(f"{packet_id} per time")
+            k += 1
+        
+        #plt.pause(0.5)
+        plt.savefig(fname = f"D:\\disertatie\\ingsoc\\IntelPTDriver\\.vscode\\trace_figs\\tracefig1\\{sequence_id}_{packet_id_number}.png", format = "png")
+        plt.close(gCrtPlt)
 
         if packet_type == "LAST":
             pass

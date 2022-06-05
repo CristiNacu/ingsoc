@@ -48,28 +48,29 @@ int main(int argc, char* argv[])
     //Listen to incoming connections
     listen(s, 3);
 
-    //Accept and incoming connection
-    puts("Waiting for incoming connections...");
-
-    c = sizeof(struct sockaddr_in);
-    new_socket = accept(s, (struct sockaddr*)&client, &c);
-    if (new_socket == INVALID_SOCKET)
+    for (int i = 0; i < 10; i++)
     {
-        printf("accept failed with error code : %d", WSAGetLastError());
-    }
+        //Accept and incoming connection
+        puts("Waiting for incoming connections...");
+        c = sizeof(struct sockaddr_in);
+        new_socket = accept(s, (struct sockaddr*)&client, &c);
+        if (new_socket == INVALID_SOCKET)
+        {
+            printf("accept failed with error code : %d", WSAGetLastError());
+        }
 
-    puts("Connection accepted");
+        puts("Connection accepted");
 
-    //Reply to client
-    message = "GET /chat HTTP/1.1 \
+        //Reply to client
+        message = "GET /chat HTTP/1.1 \
         Host: example.com : 8888 \
         Upgrade : websocket \
         Connection : Upgrade \
         ";
-    send(new_socket, message, strlen(message), 0);
+        send(new_socket, message, strlen(message), 0);
 
-    getchar();
-
+        getchar();
+    }
     closesocket(s);
     WSACleanup();
 

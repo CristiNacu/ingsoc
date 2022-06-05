@@ -11,12 +11,12 @@ def tsc_packet_handler(packet_data, packet_name, context):
     return packet 
 
 def psb_packet_handler(packet_data, packet_name, context):
-    print(f"Intercepted PSB")
+    # print(f"Intercepted PSB")
     context["disable_interpreting"] = True
     return PacketBase(PACKET_PSB, context["tsc"])
 
 def psbend_packet_handler(packet_data, packet_name, context):
-    print(f"Intercepted PSBEND")
+    # print(f"Intercepted PSBEND")
     context["disable_interpreting"] = False
     return PacketBase(PACKET_PSBEND, context["tsc"])
 
