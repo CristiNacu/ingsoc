@@ -75,7 +75,7 @@ PtwCommandTraceProcess(
     UNREFERENCED_PARAMETER(OutputBufferLength);
 
     NTSTATUS status;
-    status = PtwHookProcessCodeBase();
+    status = PtwHookProcessCr3();
 
     return status;
 }

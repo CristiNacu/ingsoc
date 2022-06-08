@@ -1,5 +1,7 @@
 #include "Globals.h"
 
+LARGE_INTEGER gProcessorFrequency;
+
 NTSTATUS
 CommandTest(
     PVOID   InParameter,
@@ -250,11 +252,15 @@ CommandSetupPt(
 	}
 	printf_s("[INFO] Driver called\n");
 
-
+	
 	DWORD result = WaitForSingleObject(overlapped->hEvent, INFINITE);
 	printf_s("[INFO] Driver responded\n");
 	if (result == WAIT_OBJECT_0)
 	{
+		QueryPerformanceFrequency(
+			&gProcessorFrequency
+		);
+
 		printf_s("[INFO] Create worker thread\n");
 		HANDLE thread = CreateThread(
 			NULL,
@@ -413,6 +419,8 @@ ThreadProc(
 			continue;
 		}
 
+		long long tscInSeconds = (__rdtsc() / gProcessorFrequency.QuadPart);
+
 		if (packetInfo->Header.Options.FirstPacket)
 		{
 			packetSize = sizeof(KAFKA_PACKET_FIRST);
@@ -428,8 +436,9 @@ ThreadProc(
 			packetFirst->ImageSize = packetInfo->Payload.FirstPacket.ImageSize;
 			packetFirst->ProcessorFrequency = packetInfo->Payload.FirstPacket.ProcessorFrequency;
 
-			printf_s("[INFO] Sequence %d CPU %d - first packet received. Image base %p Buffer Size %ul\n", packetFirst->Header.SequenceId,
-				packetFirst->Header.CpuId, packetFirst->ImageBaseAddress, packetFirst->ImageSize);
+
+			printf_s("[INFO] Sequence %d CPU %d - first packet received. Image base %p Buffer Size %ul. TSC in ms %lld\n", packetFirst->Header.SequenceId,
+				packetFirst->Header.CpuId, packetFirst->ImageBaseAddress, packetFirst->ImageSize, tscInSeconds);
 
 			packet = (KAFKA_PACKET*)packetFirst;
 
@@ -450,15 +459,17 @@ ThreadProc(
 
 			if (packetInfo->Header.Options.LastPacket)
 			{
-				printf_s("[INFO] Sequence %d - packet %ld  CPU %d Last Packet. Buffer address %p Buffer Size %lld Packet h size %d\n",
+				printf_s("[INFO] Sequence %d - packet %ld  CPU %d Last Packet. Buffer address %p Buffer Size %lld TSC in ms %lld\n",
 					packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
-					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize, packet->Header.HeaderSize);
+					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize, 
+					tscInSeconds);
 			}
 			else
 			{
-				printf_s("[INFO] Sequence %d - packet %ld  CPU %d. Buffer address %p Buffer Size %lld Packet h size %d\n",
+				printf_s("[INFO] Sequence %d - packet %ld  CPU %d. Buffer address %p Buffer Size %lld Tsc in ms %lld\n",
 					packetInfo->Header.SequenceId, packetInfo->Header.PacketId, packetInfo->Header.CpuId,
-					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize, packet->Header.HeaderSize);
+					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize,
+					tscInSeconds);
 			}
 		}
 

@@ -1,5 +1,8 @@
+from cProfile import label
 import sys
-from matplotlib import pyplot as plt
+import matplotlib 
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from sympy import sequence
 from PacketInterpreter.PacketInterpreter import PacketInterpretor
 from PacketInterpreter.InternalPacketDefinitions import PACKET_ID_TO_STRING
@@ -8,8 +11,10 @@ from kafka import KafkaConsumer
 from struct import *
 import numpy as np
 from sklearn.neighbors.kde import KernelDensity
-
+import os
 from PacketInterpreter.IntelPacketDefinitions import *
+from sklearn.cluster import KMeans
+import matplotlib.ticker as ticker
 
 PACKET_HEADER_STRUCT_CONTROL_SUM = "=I" # unsigned HeaderSize
 
@@ -74,8 +79,14 @@ def read_trace(file_path: str):
 
     # with open(file_path, "rzb") as f:
     #     data = f.read()
-    
-    consumer = KafkaConsumer("ana_are_mere", bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
+    topic_name = "pocmal2"
+    consumer = KafkaConsumer(topic_name, bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
+    packets = {}
+    ips = []
+    first_tsc = -1
+    last_tsc = -1
+    packets_by_time = {}
+
     for msg in consumer:
         
         msg = msg.value
@@ -136,7 +147,7 @@ def read_trace(file_path: str):
                 addr = el.address
                 if addr is None:
                     continue
-                ips.append(abs(addr - base_image_address))
+                ips.append(addr / (1024 * 1024))
 
             if el.packet_id is PACKET_TSC:
                 if first_tsc == -1:
@@ -144,7 +155,7 @@ def read_trace(file_path: str):
                 last_tsc = el.tsc
 
             if el.tsc is not None:
-                time_in_sec_relative_to_trace_start = ((el.tsc - first_tsc) / processor_frequency)
+                time_in_sec_relative_to_trace_start = ((el.tsc) / processor_frequency)
             else:
                time_in_sec_relative_to_trace_start = 0 
             if el.tsc < first_tsc:
@@ -163,34 +174,55 @@ def read_trace(file_path: str):
             plt.close(gCrtPlt)
         
         # print(json.dumps(packets, indent=4))  
-        print(json.dumps(packets_by_time, indent=4))  
-        # print(f"TRACED TIME {(last_tsc - first_tsc) / processor_frequency} SECONDS")
-
-        plt.xticks(rotation=45)
+        # print(json.dumps(packets_by_time, indent=4))  
+        print(f"TRACED TIME {((last_tsc - first_tsc) / processor_frequency)/1024} SECONDS")
 
         gCrtPlt, axis = plt.subplots(2, 4)
-        gCrtPlt.set_size_inches(15.5, 9.5, forward=True)
+
+        plt.subplots_adjust(left=0.1,
+                            bottom=0.05, 
+                            right=0.9, 
+                            top=0.95, 
+                            wspace=0.4, 
+                            hspace=0.4)
+
+        gCrtPlt.set_size_inches(20, 12.5, forward=True)
         
         # For Sine Function
         axis[0][0].bar(packets.keys(), packets.values())
         axis[0][0].set_title("Packet distribution")
+        axis[0][0].tick_params(labelrotation=85)
+        axis[0][0].set_xlabel("Packet type")
+        axis[0][0].set_ylabel("Number of packets")
 
         if ips != []:
             x = np.array(ips).reshape(-1, 1)
             y = np.zeros_like(ips)
             
-            axis[0][1].scatter(x, y)
+            axis[0][1].scatter(x, y, marker = "o")
+
         axis[0][1].set_title("Address distribution")
+        axis[0][1].tick_params(labelrotation=45)
+        axis[0][1].set_xlabel("RAM Megabyte")
+
 
         k = 2
-        for packet_id in ["PACKET_TIP_PGE", "PACKET_TIP_PGD", "PACKET_TNT_TAKEN", "PACKET_TNT_NOT_TAKEN", "PACKET_FUP"]:
+        for packet_id in ["TIP_PGE", "TIP_PGD", "TAKEN", "NOT_TAKEN", "FUP"]:
             au = [(packets_by_time[el][packet_id] if packet_id in packets_by_time[el].keys() else 0) for el in packets_by_time.keys()]
             axis[k // 4][k % 4].plot(packets_by_time.keys(), au)
+            axis[k // 4][k % 4].tick_params(labelrotation=45)
             axis[k // 4][k % 4].set_title(f"{packet_id} per time")
+            axis[k // 4][k % 4].set_xlabel("System runtime in ms")
+            axis[k // 4][k % 4].set_ylabel("Number of packets")
+            if first_tsc != last_tsc:
+                axis[k // 4][k % 4].xaxis.set_major_locator(ticker.LinearLocator(numticks = 10))
             k += 1
         
-        #plt.pause(0.5)
-        plt.savefig(fname = f"D:\\disertatie\\ingsoc\\IntelPTDriver\\.vscode\\trace_figs\\tracefig1\\{sequence_id}_{packet_id_number}.png", format = "png")
+        # plt.pause(0.5)
+        save_path = f"D:\\disertatie\\ingsoc\\IntelPTDriver\\trace_figs\\{topic_name}"
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        plt.savefig(fname = save_path + f"\\{sequence_id}_{packet_id_number}.png", format = "png")
         plt.close(gCrtPlt)
 
         if packet_type == "LAST":

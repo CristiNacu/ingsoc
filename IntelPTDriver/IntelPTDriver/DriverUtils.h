@@ -68,7 +68,7 @@ DuDumpMemory(
 );
 
 ULONG DuGetPacketId();
-ULONG DuGetSequenceId();
+NTSTATUS DuGetSequenceId(unsigned* ReturnValue);
 BOOLEAN DuIncreaseSequenceId();
 
 

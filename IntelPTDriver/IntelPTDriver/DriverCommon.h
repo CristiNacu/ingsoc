@@ -38,7 +38,7 @@ typedef struct _DRIVER_GLOBAL_DATA {
 
     COMM_IO_COMMAND *IoCallbacks;
     KMUTEX SequenceMutex;
-    volatile unsigned long SequenceIdCounter;
+    volatile unsigned SequenceIdCounter;
     volatile unsigned long PacketIdCounter;
     unsigned long long ProcessorFrequency;
 

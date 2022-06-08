@@ -326,11 +326,12 @@ DuEnqueueElements(
     return status;
 }
 
-ULONG
-DuGetSequenceId()
+NTSTATUS
+DuGetSequenceId(
+    unsigned *ReturnValue
+)
 {
     NTSTATUS status;
-    ULONG returnValue;
 
     status = KeWaitForSingleObject(
         &gDriverData.SequenceMutex, 
@@ -340,18 +341,24 @@ DuGetSequenceId()
         NULL);
 
     if (status == STATUS_SUCCESS)
-        returnValue = gDriverData.SequenceIdCounter;
+        *ReturnValue = gDriverData.SequenceIdCounter;
     else
     {
         DEBUG_STOP();
-        return 0xDEADBEEF;
+
+        KeReleaseMutex(
+            &gDriverData.SequenceMutex,
+            FALSE
+        );
+
+        return status;
     }
     KeReleaseMutex(
         &gDriverData.SequenceMutex,
         FALSE
     );
 
-    return returnValue;
+    return STATUS_SUCCESS;
 }
 
 BOOLEAN

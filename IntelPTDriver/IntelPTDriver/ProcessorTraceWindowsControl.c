@@ -471,18 +471,56 @@ PtwHookImageLoadCr3(
         goto cleanup;
     }
 
+    gProcessId = ProcessId;
+
     DuIncreaseSequenceId();
     gDriverData.PacketIdCounter = 0;
 
-    gProcessId = ProcessId;
     PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
     PVOID imageBasePhysicalEndAddress = (PVOID)((unsigned long long)imageBasePhysicalStartAddress + ImageInfo->ImageSize);
 
-    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %X\nProcess Image Base Start PA %X\nImage Base End PA %X\nProcess Image Size %d\n<<<<<<<<<<<\n",
+    DEBUG_PRINT(">>>>>>>>>>>>\nProcess Image Base VA %p\nProcess Image Base Start PA %p\nImage Base End PA %p\nProcess Image Size %lld\n<<<<<<<<<<<\n",
         ImageInfo->ImageBase,
         imageBasePhysicalStartAddress,
         imageBasePhysicalEndAddress,
         ImageInfo->ImageSize);
+
+    gImageBasePaStart = ImageInfo->ImageBase;
+    gImageBasePaEnd = (PVOID)((char*)ImageInfo->ImageBase + ImageInfo->ImageSize);
+
+    COMM_BUFFER_ADDRESS* dto =
+        (COMM_BUFFER_ADDRESS*)ExAllocatePoolWithTag(
+            NonPagedPool,
+            sizeof(COMM_BUFFER_ADDRESS),
+            'ffuB'
+        );
+    if (!dto)
+    {
+        return;
+    }
+
+    dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
+    dto->Header.Options.FirstPacket = TRUE;
+    dto->Header.Options.LastPacket = FALSE;
+    dto->Header.CpuId = KeGetCurrentProcessorNumber();
+    status = DuGetSequenceId(&dto->Header.SequenceId);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuGetSequenceId returned status%X\n", status);
+        dto->Header.SequenceId = 0; // Handle the error by sengding an unused sequence ID
+    }
+    dto->Header.PacketId = DuGetPacketId();
+
+    dto->Payload.FirstPacket.ImageBaseAddress = gImageBasePaStart;
+    dto->Payload.FirstPacket.ProcessorFrequency = gDriverData.ProcessorFrequency;
+    dto->Payload.FirstPacket.ImageSize = (unsigned long)ImageInfo->ImageSize;
+
+
+    DuEnqueueElement(
+        gQueueHead,
+        (PVOID)dto
+    );
+
 
     status = PsSetCreateThreadNotifyRoutineEx(
         PsCreateThreadNotifyNonSystem,
@@ -569,9 +607,14 @@ PtwHookImageLoadCodeBase(
     dto->Header.Options.FirstPacket = TRUE;
     dto->Header.Options.LastPacket = FALSE;
     dto->Header.CpuId = KeGetCurrentProcessorNumber();
-    dto->Header.SequenceId = DuGetSequenceId();
-    dto->Header.PacketId = DuGetPacketId();
+    status = DuGetSequenceId(&dto->Header.SequenceId);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuGetSequenceId returned status%X\n", status);
+        dto->Header.SequenceId = 0; // Handle the error by sengding an unused sequence ID
+    }
 
+    dto->Header.PacketId = DuGetPacketId();
     dto->Payload.FirstPacket.ImageBaseAddress = gImageBasePaStart;
     dto->Payload.FirstPacket.ProcessorFrequency = gDriverData.ProcessorFrequency;
     dto->Payload.FirstPacket.ImageSize = (unsigned long)ImageInfo->ImageSize;
@@ -651,7 +694,12 @@ IptDpc(
 
 
     dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
-    dto->Header.SequenceId = DuGetSequenceId();
+    status = DuGetSequenceId(&dto->Header.SequenceId);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuGetSequenceId returned status%X\n", status);
+        dto->Header.SequenceId = 0; // Handle the error by sengding an unused sequence ID
+    }
     dto->Header.PacketId = DuGetPacketId();
     dto->Header.Options.LastPacket = FALSE;
     dto->Header.Options.FirstPacket = FALSE;
@@ -853,7 +901,12 @@ PtwDpcPerCoreDisable(
     dto->Header.Options.LastPacket = TRUE;
     dto->Header.CpuId = KeGetCurrentProcessorNumber();
     dto->Header.PacketId = DuGetPacketId();
-    dto->Header.SequenceId = DuGetSequenceId();
+    status = DuGetSequenceId(&dto->Header.SequenceId);
+    if (!NT_SUCCESS(status))
+    {
+        DEBUG_PRINT("DuGetSequenceId returned status%X\n", status);
+        dto->Header.SequenceId = 0; // Handle the error by sengding an unused sequence ID
+    }
 
     dto->Payload.GenericPacket.BufferSize = bufferSize;
     dto->Payload.GenericPacket.BufferAddress = mdl;
