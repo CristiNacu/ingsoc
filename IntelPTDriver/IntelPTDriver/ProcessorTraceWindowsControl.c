@@ -473,7 +473,7 @@ PtwHookImageLoadCr3(
 
     gProcessId = ProcessId;
 
-    DuIncreaseSequenceId();
+    //DuIncreaseSequenceId();
     gDriverData.PacketIdCounter = 0;
 
     PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;
@@ -577,7 +577,7 @@ PtwHookImageLoadCodeBase(
         return;
     }
 
-    DuIncreaseSequenceId();
+    //DuIncreaseSequenceId();
     gDriverData.PacketIdCounter = 0;
 
     PVOID imageBasePhysicalStartAddress = (PVOID)MmGetPhysicalAddress(ImageInfo->ImageBase).QuadPart;

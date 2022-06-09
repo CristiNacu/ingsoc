@@ -331,7 +331,9 @@ DuGetSequenceId(
     unsigned *ReturnValue
 )
 {
-    NTSTATUS status;
+    *ReturnValue = 0;
+    return STATUS_SUCCESS;
+   /* NTSTATUS status;
 
     status = KeWaitForSingleObject(
         &gDriverData.SequenceMutex, 
@@ -358,7 +360,7 @@ DuGetSequenceId(
         FALSE
     );
 
-    return STATUS_SUCCESS;
+    return STATUS_SUCCESS;*/
 }
 
 BOOLEAN
@@ -377,7 +379,14 @@ DuIncreaseSequenceId()
         InterlockedIncrement((volatile long *)&gDriverData.SequenceIdCounter);
     }
     else
+    {
+        KeReleaseMutex(
+            &gDriverData.SequenceMutex,
+            FALSE
+        );
         return FALSE;
+    }
+    
     KeReleaseMutex(
         &gDriverData.SequenceMutex,
         FALSE

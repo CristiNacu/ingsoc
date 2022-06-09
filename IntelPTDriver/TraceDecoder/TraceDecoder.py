@@ -79,7 +79,7 @@ def read_trace(file_path: str):
 
     # with open(file_path, "rzb") as f:
     #     data = f.read()
-    topic_name = "pocmal2"
+    topic_name = "benign1"
     consumer = KafkaConsumer(topic_name, bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
     packets = {}
     ips = []
@@ -207,7 +207,7 @@ def read_trace(file_path: str):
 
 
         k = 2
-        for packet_id in ["TIP_PGE", "TIP_PGD", "TAKEN", "NOT_TAKEN", "FUP"]:
+        for packet_id in ["TIP_PGE", "TIP_PGD", "TAKEN", "NOT_TAKEN", "FUP", "TIP"]:
             au = [(packets_by_time[el][packet_id] if packet_id in packets_by_time[el].keys() else 0) for el in packets_by_time.keys()]
             axis[k // 4][k % 4].plot(packets_by_time.keys(), au)
             axis[k // 4][k % 4].tick_params(labelrotation=45)
