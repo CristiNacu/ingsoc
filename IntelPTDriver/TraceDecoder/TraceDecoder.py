@@ -79,7 +79,7 @@ def read_trace(file_path: str):
 
     # with open(file_path, "rzb") as f:
     #     data = f.read()
-    topic_name = "benign1"
+    topic_name = "blackhole"
     consumer = KafkaConsumer(topic_name, bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
     packets = {}
     ips = []

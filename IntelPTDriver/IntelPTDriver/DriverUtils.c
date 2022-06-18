@@ -148,7 +148,7 @@ DuQueueInit(
     NTSTATUS status = STATUS_SUCCESS;
 
     QUEUE_HEAD_STRUCTURE* queueHead = ExAllocatePoolWithTag(
-        PagedPool,
+        NonPagedPool,
         Interlocked? sizeof(QUEUE_INTERLOCKED_HED_STRUCT) : sizeof(QUEUE_HEAD_STRUCTURE),
         PT_QUEUE_TAG
     );
@@ -159,7 +159,7 @@ DuQueueInit(
     }
 
     queueHead->ListEntry = ExAllocatePoolWithTag(
-        PagedPool,
+        NonPagedPool,
         sizeof(LIST_ENTRY),
         PT_QUEUE_TAG
     );
@@ -210,7 +210,7 @@ DuEnqueueElement(
         return STATUS_INVALID_PARAMETER_1;
 
     INTERNAL_QUEUE_WORK_ELEMENT_STRUCTURE* element = ExAllocatePoolWithTag(
-        KeGetCurrentIrql() == DISPATCH_LEVEL ? NonPagedPool : PagedPool,
+        NonPagedPool,
         sizeof(INTERNAL_QUEUE_WORK_ELEMENT_STRUCTURE),
         PT_QUEUE_TAG
     );
@@ -220,8 +220,12 @@ DuEnqueueElement(
     }
 
     element->Data = Data;
-
-    if (gFirstDataIn)
+    ExInterlockedInsertTailList(
+        QueueHead->ListEntry,
+        (PLIST_ENTRY)element,
+        &((QUEUE_INTERLOCKED_HED_STRUCT*)QueueHead)->QueueLock
+    );
+ /*   if (gFirstDataIn)
     {
         DEBUG_PRINT(
             "FIRST ENQUEUED DATA %p\n",
@@ -243,7 +247,7 @@ DuEnqueueElement(
             (PLIST_ENTRY)element,
             &((QUEUE_INTERLOCKED_HED_STRUCT*)QueueHead)->QueueLock
         );
-    }
+    }*/
 
     return STATUS_SUCCESS;
 }
@@ -260,19 +264,19 @@ DuDequeueElement(
         return STATUS_INVALID_PARAMETER_2;
 
     PLIST_ENTRY element;
-    if (!QueueHead->Interlocked)
-    {
-        element = RemoveHeadList(
-            QueueHead->ListEntry
-        );
-    }
-    else
-    {
+    //if (!QueueHead->Interlocked)
+    //{
+    //    element = RemoveHeadList(
+    //        QueueHead->ListEntry
+    //    );
+    //}
+    //else
+    //{
         element = ExInterlockedRemoveHeadList(
             QueueHead->ListEntry,
             &((QUEUE_INTERLOCKED_HED_STRUCT*)QueueHead)->QueueLock
         );
-    }
+    //}
 
     if (element == NULL || element == QueueHead->ListEntry)
     {
@@ -285,14 +289,14 @@ DuDequeueElement(
 
     *Data = queueElement->Data;
 
-    if (gFirstDataOut)
-    {
-        DEBUG_PRINT(
-            "FIRST DEQUEUED DATA %p\n",
-            queueElement->Data
-        );
-        gFirstDataOut = FALSE;
-    }
+    //if (gFirstDataOut)
+    //{
+    //    DEBUG_PRINT(
+    //        "FIRST DEQUEUED DATA %p\n",
+    //        queueElement->Data
+    //    );
+    //    gFirstDataOut = FALSE;
+    //}
 
     ExFreePoolWithTag(
         queueElement,

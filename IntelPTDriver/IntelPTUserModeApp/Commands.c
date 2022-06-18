@@ -262,25 +262,29 @@ CommandSetupPt(
 		);
 
 		printf_s("[INFO] Create worker thread\n");
-		HANDLE thread = CreateThread(
-			NULL,
-			0,
-			ThreadProc,
-			data,
-			0,
-			NULL
-		);
-		if (thread == INVALID_HANDLE_VALUE || !thread)
+		for (int i = 0; i < 1; i++)
 		{
-			return STATUS_FATAL_APP_EXIT;
-		}
-		WaitForSingleObject(thread, 0);
+			HANDLE thread = CreateThread(
+				NULL,
+				0,
+				ThreadProc,
+				data,
+				0,
+				NULL
+			);
+			if (thread == INVALID_HANDLE_VALUE || !thread)
+			{
+				return STATUS_FATAL_APP_EXIT;
+			}
+		//WaitForSingleObject(thread, 0);
 		printf_s("[INFO] Thread created\n");
+		}
+
 	}
-	else
-	{
-		printf_s("[ERROR] DeviceIoControl unsuccessful\n");
-	}
+	//else
+	//{
+	//	printf_s("[ERROR] DeviceIoControl unsuccessful\n");
+	//}
 
 	if (overlapped)
 		free(overlapped);
@@ -348,20 +352,32 @@ cleanup:
 
 NTSTATUS
 CommandFreeBuffer(
-	unsigned long long BufferId
+	COMM_BUFFER_ADDRESS *FreeBufferData
 )
 {
 	NTSTATUS status;
 	COMMUNICATION_MESSAGE message;
 	DWORD bytesWritten;
 	OVERLAPPED* overlapped = NULL;
-	unsigned long long bufferId = BufferId;
+
+	if (FreeBufferData->Header.Options.FirstPacket)
+	{
+		free(FreeBufferData);
+		return CMC_STATUS_SUCCESS;
+	}
 
 	message.MethodType = COMM_TYPE_FREE_BUFFER;
-	message.DataIn = &bufferId;
-	message.DataInSize = sizeof(unsigned long long);
+	message.DataIn = (PVOID) malloc(sizeof(COMM_FREE_BUFFER));
+	if (message.DataIn == 0)
+		return STATUS_NO_MEMORY;
+	((COMM_FREE_BUFFER*)(message.DataIn))->BaseAddressFree = FreeBufferData->FreeBuffer.BaseAddressFree;
+	((COMM_FREE_BUFFER*)(message.DataIn))->MdlFree = FreeBufferData->FreeBuffer.MdlFree;
+	//DebugBreak();
+
+	message.DataInSize = sizeof(COMM_FREE_BUFFER);
 	message.DataOut = NULL;
 	message.DataOutSize = 0;
+
 	message.BytesWritten = &bytesWritten;
 
 	status = CommunicationSendMessage(
@@ -382,6 +398,9 @@ CommandFreeBuffer(
 		printf_s("WaitForSingleObject unsuccessful\n");
 	}
 
+	free(FreeBufferData);
+	if (message.DataIn)
+		free(message.DataIn);
 	if (overlapped)
 		free(overlapped);
 
@@ -402,12 +421,14 @@ ThreadProc(
 	unsigned long long bufferId;
 	COMM_BUFFER_ADDRESS *packetInfo;
 	unsigned long packetSize;
-	FILE* fileHandle;
+	//FILE* fileHandle;
 	KAFKA_PACKET* packet;
 	//DebugBreak();
 
 	while (1 == 1)
 	{
+		printf_s("[INFO] Hi\n");
+
 		//DebugBreak();
 
 		status = CommandGetBuffer(
@@ -416,6 +437,7 @@ ThreadProc(
 		);
 		if (!SUCCEEDED(status))
 		{
+			printf_s("[INFO] No more data in kernel Buffer\n");
 			continue;
 		}
 
@@ -427,11 +449,13 @@ ThreadProc(
 			KAFKA_PACKET_FIRST *packetFirst = (KAFKA_PACKET_FIRST*)calloc(1, packetSize);
 			if (packetFirst == NULL)
 			{
-				printf_s("[ERROR] Cannot allocate kafka packet!\n");
+				while (1 == 1)
+				{
+					printf_s("[ERROR] Cannot allocate kafka packet!\n");
+				}
 				return;
 			}
 			memcpy(packetFirst, &(packetInfo->Header), sizeof(PACKET_HEADER_INFORMATION));
-
 			packetFirst->ImageBaseAddress = packetInfo->Payload.FirstPacket.ImageBaseAddress;
 			packetFirst->ImageSize = packetInfo->Payload.FirstPacket.ImageSize;
 			packetFirst->ProcessorFrequency = packetInfo->Payload.FirstPacket.ProcessorFrequency;
@@ -450,12 +474,15 @@ ThreadProc(
 			packet = (KAFKA_PACKET*)calloc(1, packetSize);
 			if (packet == NULL)
 			{
-				printf_s("[ERROR] Cannot allocate kafka packet!\n");
+				while (1 == 1)
+				{
+					printf_s("[ERROR] Cannot allocate kafka packet!\n");
+				}
 				return;
 			}
 
 			memcpy(packet, &(packetInfo->Header), sizeof(PACKET_HEADER_INFORMATION));
-			memcpy(&(packet->Data), iptBuffer, 10 * USN_PAGE_SIZE);
+			//memcpy(&(packet->Data), iptBuffer, 10 * USN_PAGE_SIZE);
 
 			if (packetInfo->Header.Options.LastPacket)
 			{
@@ -471,8 +498,14 @@ ThreadProc(
 					packetInfo->Payload.GenericPacket.BufferAddress, packetInfo->Payload.GenericPacket.BufferSize,
 					tscInSeconds);
 			}
+
 		}
 
+		//DebugBreak();
+
+		CommandFreeBuffer(
+			packetInfo
+		);
 		
 		status = KafkaSendMessage(
 			gApplicationGlobals->KafkaConfig.KafkaHandler,
@@ -480,6 +513,8 @@ ThreadProc(
 			packet,
 			packetSize
 		);
+
+		free(packet);
 		//if (status != CMC_STATUS_SUCCESS)
 		//{
 		//	printf_s("[ERROR] Could not send message to kafka!\n");
@@ -512,10 +547,10 @@ ThreadProc(
 		fclose(fileHandle);
 		printf("Written bytes\n");*/
 
-
-		status = CommandFreeBuffer(
-			bufferId
-		);
+	}
+	while (1 == 1)
+	{
+		printf_s("[INFO] Bye\n");
 	}
 	//DebugBreak();
 	return 0;

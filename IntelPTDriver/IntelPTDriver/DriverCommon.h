@@ -33,6 +33,11 @@ typedef struct _PER_CPU_DATA_STRUCTURE {
 
 } PER_CPU_DATA_STRUCTURE;
 
+typedef struct _TRACED_BUFFERS{
+    PMDL mdl;
+    PVOID baseAddr;
+} TRACED_BUFFERS;
+
 // TODO: Add driver relevant data here
 typedef struct _DRIVER_GLOBAL_DATA {
 

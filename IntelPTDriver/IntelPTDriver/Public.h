@@ -40,6 +40,11 @@ typedef struct _PACKET_HEADER_INFORMATION {
     } Options;
 } PACKET_HEADER_INFORMATION;
 
+typedef struct _COMM_FREE_BUFFER {
+    PVOID MdlFree;
+    PVOID BaseAddressFree;
+} COMM_FREE_BUFFER;
+
 typedef struct _COMM_BUFFER_ADDRESS {
     
     PACKET_HEADER_INFORMATION Header;
@@ -56,6 +61,8 @@ typedef struct _COMM_BUFFER_ADDRESS {
         } FirstPacket;
 
     } Payload;
+
+    COMM_FREE_BUFFER FreeBuffer;
 
 } COMM_BUFFER_ADDRESS;
 

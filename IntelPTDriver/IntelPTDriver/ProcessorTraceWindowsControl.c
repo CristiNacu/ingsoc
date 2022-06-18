@@ -51,8 +51,8 @@ IptGenericDpcFunction(
 
     PER_CORE_SYNC_STRUCTURE* syncStructure = (PER_CORE_SYNC_STRUCTURE*)DeferredContext;
 
-    ULONG procNumber = KeGetCurrentProcessorNumber();
-    DEBUG_PRINT("Executig method on CPU %d LEVEL DPC\n", procNumber);
+    //ULONG procNumber = KeGetCurrentProcessorNumber();
+    //DEBUG_PRINT("Executig method on CPU %d LEVEL DPC\n", procNumber);
 
     if (syncStructure->ExecutionLevel == IptPerCoreExecutionLevelDpc)
         syncStructure->Function(syncStructure->Context);
@@ -98,8 +98,8 @@ PerCoreDispatcherRoutine(
 {
     PER_CORE_SYNC_STRUCTURE* syncStructure = (PER_CORE_SYNC_STRUCTURE*)Argument;
    
-    ULONG procNumber = KeGetCurrentProcessorNumber();
-    DEBUG_PRINT("Executig method on CPU %d LEVEL IPI\n", procNumber);
+    //ULONG procNumber = KeGetCurrentProcessorNumber();
+    //DEBUG_PRINT("Executig method on CPU %d LEVEL IPI\n", procNumber);
 
     if(syncStructure->ExecutionLevel == IptPerCoreExecutionLevelIpi)
         syncStructure->Function(syncStructure->Context);
@@ -342,22 +342,16 @@ PtwHookThreadCreation(
     INTEL_PT_CONFIGURATION filterConfiguration = {
         .FilteringOptions = {
             .FilterCpl = {
-                .FilterKm = FALSE,
-                .FilterUm = TRUE
+                .FilterKm = TRUE,
+                .FilterUm = FALSE
             },
             .FilterCr3 = {
-                .Enable = TRUE,
-                .Cr3Address = (PVOID)cr3
+                0
             },
             .FilterRange = {
-                .Enable = gImageBasePaStart != 0 ? TRUE : FALSE,
-                .NumberOfRanges = gImageBasePaStart != 0 ? 0 : 1,
-                .RangeOptions[0] = {
-                    .BaseAddress = gImageBasePaStart,
-                    .EndAddress = gImageBasePaEnd,
-                    .RangeType = gImageBasePaStart != 0 ? RangeFilterEn : RangeUnused
+               0
             }
-        }
+        //}
         },
         .PacketGenerationOptions = {
             .PacketCofi.Enable = TRUE,
@@ -531,10 +525,10 @@ PtwHookImageLoadCr3(
         return;
     }
 
-    status = PsSetCreateProcessNotifyRoutineEx(
-        PtwHookProcessExit,
-        FALSE
-    );
+    //status = PsSetCreateProcessNotifyRoutineEx(
+    //    PtwHookProcessExit,
+    //    FALSE
+    //);
     if (!NT_SUCCESS(status))
     {
         DEBUG_PRINT("Failed to hook process creation. Status %X\n", status);
@@ -634,15 +628,15 @@ PtwHookImageLoadCodeBase(
         return;
     }
 
-    status = PsSetCreateProcessNotifyRoutineEx(
-        PtwHookProcessExit,
-        FALSE
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("Failed to hook process creation. Status %X\n", status);
-        return;
-    }
+    //status = PsSetCreateProcessNotifyRoutineEx(
+    //    PtwHookProcessExit,
+    //    FALSE
+    //);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_PRINT("Failed to hook process creation. Status %X\n", status);
+    //    return;
+    //}
 
 cleanup:
     return;
@@ -666,7 +660,7 @@ IptDpc(
     PMDL mdl;
     ULONG bufferSize;
 
-    DEBUG_PRINT(">>> DPC ON AP %d\n", KeGetCurrentProcessorNumber());
+    //DEBUG_PRINT(">>> DPC ON AP %d\n", KeGetCurrentProcessorNumber());
 
     status = IptUnlinkFullTopaBuffers(
         &mdl,
@@ -709,18 +703,18 @@ IptDpc(
     dto->Payload.GenericPacket.BufferAddress = mdl;
 
 
-    status = DuEnqueueElement(
-        gQueueHead,
-        (PVOID)dto
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("DuEnqueueElements error %X\n", status);
-    }
-    else
-    {
-        KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
-    }
+    //status = DuEnqueueElement(
+    //    gQueueHead,
+    //    (PVOID)dto
+    //);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_PRINT("DuEnqueueElements error %X\n", status);
+    //}
+    //else
+    //{
+    //    KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
+    //}
 
     IptResetPmi();
     IptResumeTrace(
@@ -735,7 +729,7 @@ IptPmiHandler(
 )
 {
     PKDPC pProcDpc;
-    DEBUG_PRINT(">>> PMI ON AP %d\n", KeGetCurrentProcessorNumber());
+    //DEBUG_PRINT(">>> PMI ON AP %d\n", KeGetCurrentProcessorNumber());
     UNREFERENCED_PARAMETER(pTrapFrame);
 
     if (!IptTopaPmiReason())
@@ -744,7 +738,7 @@ IptPmiHandler(
         return;
     }
 
-    DEBUG_PRINT(">>> PAUSING TRACE ON AP %d\n", KeGetCurrentProcessorNumber());
+    //DEBUG_PRINT(">>> PAUSING TRACE ON AP %d\n", KeGetCurrentProcessorNumber());
     IptPauseTrace(gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions);
     
     pProcDpc = (PKDPC)ExAllocatePoolWithTag(
@@ -877,7 +871,7 @@ PtwDpcPerCoreDisable(
 {
     UNREFERENCED_PARAMETER(Context);
     PMDL mdl;
-    NTSTATUS status;
+    //NTSTATUS status;
     ULONG bufferSize;
     IptDisableTrace(
         &mdl,
@@ -885,44 +879,43 @@ PtwDpcPerCoreDisable(
         gIptPerCoreControl[KeGetCurrentProcessorNumber()].OutputOptions
     );
 
-    COMM_BUFFER_ADDRESS* dto =
-        (COMM_BUFFER_ADDRESS*)ExAllocatePoolWithTag(
-            NonPagedPool,
-            sizeof(COMM_BUFFER_ADDRESS),
-            'ffuB'
-        );
-    if (!dto)
-    {
-        return;
-    }
+    //COMM_BUFFER_ADDRESS* dto =
+    //    (COMM_BUFFER_ADDRESS*)ExAllocatePoolWithTag(
+    //        NonPagedPool,
+    //        sizeof(COMM_BUFFER_ADDRESS),
+    //        'ffuB'
+    //    );
+    //if (!dto)
+    //{
+    //    return;
+    //}
 
-    dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
-    dto->Header.Options.FirstPacket = FALSE;
-    dto->Header.Options.LastPacket = TRUE;
-    dto->Header.CpuId = KeGetCurrentProcessorNumber();
-    dto->Header.PacketId = DuGetPacketId();
-    status = DuGetSequenceId(&dto->Header.SequenceId);
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("DuGetSequenceId returned status%X\n", status);
-        dto->Header.SequenceId = 0; // Handle the error by sengding an unused sequence ID
-    }
+    //dto->Header.HeaderSize = sizeof(PACKET_HEADER_INFORMATION);
+    //dto->Header.Options.FirstPacket = FALSE;
+    //dto->Header.Options.LastPacket = TRUE;
+    //dto->Header.CpuId = KeGetCurrentProcessorNumber();
+    //dto->Header.PacketId = DuGetPacketId();
+    //status = DuGetSequenceId(&dto->Header.SequenceId);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_PRINT("DuGetSequenceId returned status%X\n", status);
+    //    dto->Header.SequenceId = 0; // Handle the error by sengding an unused sequence ID
+    //}
 
-    dto->Payload.GenericPacket.BufferSize = bufferSize;
-    dto->Payload.GenericPacket.BufferAddress = mdl;
-
-    status = DuEnqueueElement(
-        gQueueHead,
-        (PVOID)dto
-    );
-    if (!NT_SUCCESS(status))
-    {
-        DEBUG_PRINT("DuEnqueueElements error %X\n", status);
-    }
-    else
-    {
-        KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
-    }
+    //dto->Payload.GenericPacket.BufferSize = bufferSize;
+    //dto->Payload.GenericPacket.BufferAddress = mdl;
+    //status = DuEnqueueElement(
+    //    gQueueHead,
+    //    (PVOID)dto
+    //);
+    //if (!NT_SUCCESS(status))
+    //{
+    //    DEBUG_PRINT("DuEnqueueElements error %X\n", status);
+    //}
+    //else
+    //{
+    //    KeSetEvent(&gPagesAvailableEvent, 0, FALSE);
+    //}
 
     return;
 }
