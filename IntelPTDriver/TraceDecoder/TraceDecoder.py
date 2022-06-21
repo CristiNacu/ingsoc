@@ -69,18 +69,20 @@ def parser(bytes, interpretor : PacketInterpretor, sequence_id: int , packet_id:
         PACKET_ORDER_LISTS[sequence_id]["out_of_order_packets"] = PACKET_ORDER_LISTS[sequence_id]["out_of_order_packets"][1:]
 
 
-
-def read_trace(file_path: str):
+def read_trace():
     interpretor = PacketInterpretor()
     gCrtPlt = None
     base_image_address = 0
 
-    # data = b""
+    topic_name = ""
+    bootstrap_server = ""
 
-    # with open(file_path, "rzb") as f:
-    #     data = f.read()
-    topic_name = "pocmal2"
-    consumer = KafkaConsumer(topic_name, bootstrap_servers = "localhost:9092", auto_offset_reset = "earliest")
+    with open(os.path.dirname(os.path.realpath(__file__)) + "\\config.json", "r") as f:
+        config_json = json.load(f)
+        topic_name = config_json["topic"]
+        bootstrap_server = config_json["bootstrap_server"]
+    
+    consumer = KafkaConsumer(topic_name, bootstrap_servers = bootstrap_server, auto_offset_reset = "earliest")
     packets = {}
     ips = []
     first_tsc = -1
@@ -207,9 +209,9 @@ def read_trace(file_path: str):
 
 
         k = 2
-        for packet_id in ["TIP_PGE", "TIP_PGD", "TAKEN", "NOT_TAKEN", "FUP"]:
+        for packet_id in ["TIP_PGE", "TIP_PGD", "TAKEN", "NOT_TAKEN", "FUP", "TIP"]:
             au = [(packets_by_time[el][packet_id] if packet_id in packets_by_time[el].keys() else 0) for el in packets_by_time.keys()]
-            axis[k // 4][k % 4].plot(packets_by_time.keys(), au)
+            axis[k // 4][k % 4].plot(list(packets_by_time.keys()), au)
             axis[k // 4][k % 4].tick_params(labelrotation=45)
             axis[k // 4][k % 4].set_title(f"{packet_id} per time")
             axis[k // 4][k % 4].set_xlabel("System runtime in ms")
@@ -233,17 +235,7 @@ def print_help():
     print("TraceDecoder.py <trace_file_path>")
 
 def main():
-
-    print(f"arg count: {len(sys.argv)}")
-
-    if len(sys.argv) < 2:
-        print_help()
-        return
-    
-    print(f"file path: {sys.argv[1]}")
- 
-    read_trace(sys.argv[1])
-
+    read_trace()
     return
 
 
